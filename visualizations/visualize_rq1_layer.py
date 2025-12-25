@@ -108,7 +108,14 @@ def main():
     print(f"Generating Combined Visualization for {args.layer}...")
     fig = create_combined_heatmap(data, args.round, args.layer, classes)
     
-    filename = f"../RQs/{args.prefix}_{args.layer}_all_classes.png"
+    # --- FIX: Define directory and create it if missing ---
+    import os
+    output_dir = "RQs" # Saves to FedMI/RQs/
+    os.makedirs(output_dir, exist_ok=True)
+    
+    filename = os.path.join(output_dir, f"{args.prefix}_{args.layer}_all_classes.png")
+    # ------------------------------------------------------
+
     plt.savefig(filename, dpi=150)
     print(f"Saved to {filename}")
 

@@ -6,8 +6,7 @@ class SimpleCNN(nn.Module):
     def __init__(self, conv_channels: List[int] = None, num_classes: int = 10, input_channels: int = 1):
         super(SimpleCNN, self).__init__()
         if conv_channels is None:
-            # conv_channels = [32, 64, 128]
-            conv_channels = [64, 128, 256]
+            conv_channels = [32, 64, 128]
         
         # Input channels (1 for MNIST, 3 for CIFAR)
         self.conv1 = nn.Conv2d(input_channels, conv_channels[0], 3, padding=1)

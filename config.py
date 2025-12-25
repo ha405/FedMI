@@ -8,14 +8,9 @@ class Config:
     seed: int = 42
 
     model_name: str = "SimpleCNN"
-    # MNIST is simpler, so we can potentially use fewer channels, 
-    # but keeping [64, 128, 256] is fine too.
-    conv_channels: List[int] = field(default_factory=lambda: [32, 64, 128]) 
+    conv_channels: List[int] = field(default_factory=lambda: [32, 64,128])
     num_classes: int = 10
-
-    # --- CHANGED ---
     dataset_name: str = "MNIST" 
-    # ---------------
     
     data_root: str = "./data"
     batch_size: int = 256
@@ -26,15 +21,24 @@ class Config:
 
     num_clients: int = 5
     num_rounds: int = 10
-    local_epochs: int = 5 # Good for dense/sparse convergence
+    local_epochs: int = 5 
 
     gate_lr: float = 0.1
     l0_lambda: float = 0.01
     discovery_steps: int = 200
-    classes_to_analyze: List[int] = field(default_factory=lambda: [0, 1, 3])
+    classes_to_analyze: List[int] = field(default_factory=lambda: [0, 1, 2, 7])
     
     train_mode: str = "sparse" 
-
-    checkpoint_dir: str = "./checkpoints"
+    use_mean_ablation: bool = False
+    partition_method: str = "iid"
+    checkpoint_dir: str = "./checkpoints/iid_run"
     resume: bool = False 
 
+    use_fedrs: bool = False
+    fedrs_alpha: float = 0.4
+
+@dataclass
+class NonIIDConfig(Config):
+    partition_method: str = "dirichlet"
+    dirichlet_alpha: float = 0.5 
+    checkpoint_dir: str = "./checkpoints/noniid_run"

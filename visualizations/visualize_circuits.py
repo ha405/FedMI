@@ -96,7 +96,7 @@ def main():
     print(f"Generating visualization for {args.round}, Class: {args.cls}...")
     fig = create_circuit_heatmap(data, args.round, args.cls, layers)
     
-    filename = f"../RQs/{args.prefix}_heatmap_{args.round}_{args.cls.replace(' ', '_')}.png"
+    filename = f"{args.prefix}_heatmap_{args.round}_{args.cls.replace(' ', '_')}.png"
     plt.savefig(filename, dpi=150)
     print(f"Saved visualization to {filename}")
     # plt.show() # Uncomment if you want to see it pop up

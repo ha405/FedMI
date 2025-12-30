@@ -1,0 +1,375 @@
+=== Federated Training Log ===
+
+[Round 1 | Client 0 | Class 0 - zero] Cross-Eval:
+
+[Round 1 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 1 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 1 | Client 1 | Class 3 - three] Cross-Eval:
+  [Cross-Eval] Target: 3 - three | Acc: 99.90% | Failures: 1/1010
+  Avg Top-5 Confusion: 4 - four (11.01%), 3 - three (11.00%), 1 - one (10.50%), 7 - seven (10.33%), 2 - two (10.01%)
+
+[Round 1 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 1 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 1 | Client 2 | Class 6 - six] Cross-Eval:
+  [Cross-Eval] Target: 6 - six | Acc: 97.60% | Failures: 23/958
+  Avg Top-5 Confusion: 4 - four (11.74%), 6 - six (11.55%), 7 - seven (10.50%), 1 - one (10.29%), 2 - two (10.11%)
+
+[Round 1 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 1 | Client 2 | Class 8 - eight] Cross-Eval:
+  [Cross-Eval] Target: 8 - eight | Acc: 99.90% | Failures: 1/974
+  Avg Top-5 Confusion: 4 - four (11.90%), 8 - eight (11.75%), 1 - one (11.08%), 6 - six (10.22%), 0 - zero (9.45%)
+
+--- Round 1 Global Full Model Evaluation ---
+Overall Accuracy: 20.64%
+Per-Class Accuracy:
+  Class 0 - zero: 0.00% (0/980)
+  Class 1 - one: 79.47% (902/1135)
+  Class 2 - two: 13.76% (142/1032)
+  Class 3 - three: 0.00% (0/1010)
+  Class 4 - four: 100.00% (982/982)
+  Class 5 - five: 0.00% (0/892)
+  Class 6 - six: 0.00% (0/958)
+  Class 7 - seven: 3.70% (38/1028)
+  Class 8 - eight: 0.00% (0/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 2 | Client 0 | Class 0 - zero] Cross-Eval:
+
+[Round 2 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 2 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 2 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 2 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 2 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 2 | Client 2 | Class 6 - six] Cross-Eval:
+  [Cross-Eval] Target: 6 - six | Acc: 58.14% | Failures: 401/958
+  Avg Top-5 Confusion: 4 - four (14.84%), 6 - six (13.97%), 1 - one (11.17%), 2 - two (10.34%), 3 - three (9.72%)
+
+[Round 2 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 2 | Client 2 | Class 8 - eight] Cross-Eval:
+  [Cross-Eval] Target: 8 - eight | Acc: 89.94% | Failures: 98/974
+  Avg Top-5 Confusion: 4 - four (18.46%), 8 - eight (17.16%), 1 - one (12.51%), 6 - six (9.57%), 0 - zero (8.67%)
+
+--- Round 2 Global Full Model Evaluation ---
+Overall Accuracy: 36.09%
+Per-Class Accuracy:
+  Class 0 - zero: 0.20% (2/980)
+  Class 1 - one: 63.17% (717/1135)
+  Class 2 - two: 78.68% (812/1032)
+  Class 3 - three: 62.38% (630/1010)
+  Class 4 - four: 99.90% (981/982)
+  Class 5 - five: 0.11% (1/892)
+  Class 6 - six: 0.00% (0/958)
+  Class 7 - seven: 45.33% (466/1028)
+  Class 8 - eight: 0.00% (0/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 3 | Client 0 | Class 0 - zero] Cross-Eval:
+
+[Round 3 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 3 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 3 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 3 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 3 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 3 | Client 2 | Class 6 - six] Cross-Eval:
+  [Cross-Eval] Target: 6 - six | Acc: 87.79% | Failures: 117/958
+  Avg Top-5 Confusion: 4 - four (19.02%), 6 - six (16.67%), 2 - two (12.57%), 1 - one (11.15%), 9 - nine (8.40%)
+
+[Round 3 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 3 | Client 2 | Class 8 - eight] Cross-Eval:
+  [Cross-Eval] Target: 8 - eight | Acc: 97.43% | Failures: 25/974
+  Avg Top-5 Confusion: 4 - four (22.62%), 8 - eight (20.07%), 1 - one (16.37%), 0 - zero (9.34%), 6 - six (9.18%)
+
+--- Round 3 Global Full Model Evaluation ---
+Overall Accuracy: 42.69%
+Per-Class Accuracy:
+  Class 0 - zero: 35.82% (351/980)
+  Class 1 - one: 65.81% (747/1135)
+  Class 2 - two: 70.74% (730/1032)
+  Class 3 - three: 88.81% (897/1010)
+  Class 4 - four: 89.82% (882/982)
+  Class 5 - five: 0.22% (2/892)
+  Class 6 - six: 0.00% (0/958)
+  Class 7 - seven: 64.20% (660/1028)
+  Class 8 - eight: 0.00% (0/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 4 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 95.82% | Failures: 41/980
+  Avg Top-5 Confusion: 4 - four (23.71%), 0 - zero (22.62%), 8 - eight (8.11%), 5 - five (7.97%), 6 - six (7.88%)
+
+[Round 4 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 4 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 4 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 4 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 4 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 4 | Client 2 | Class 6 - six] Cross-Eval:
+  [Cross-Eval] Target: 6 - six | Acc: 54.80% | Failures: 433/958
+  Avg Top-5 Confusion: 4 - four (21.36%), 6 - six (17.62%), 2 - two (15.09%), 1 - one (13.65%), 9 - nine (9.46%)
+
+[Round 4 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 4 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 4 Global Full Model Evaluation ---
+Overall Accuracy: 49.81%
+Per-Class Accuracy:
+  Class 0 - zero: 83.88% (822/980)
+  Class 1 - one: 73.48% (834/1135)
+  Class 2 - two: 81.10% (837/1032)
+  Class 3 - three: 74.55% (753/1010)
+  Class 4 - four: 89.61% (880/982)
+  Class 5 - five: 1.12% (10/892)
+  Class 6 - six: 2.30% (22/958)
+  Class 7 - seven: 79.38% (816/1028)
+  Class 8 - eight: 0.72% (7/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 5 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 84.80% | Failures: 149/980
+  Avg Top-5 Confusion: 4 - four (28.79%), 0 - zero (25.56%), 6 - six (13.62%), 5 - five (11.00%), 8 - eight (9.03%)
+
+[Round 5 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 5 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 5 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 5 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 5 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 5 | Client 2 | Class 6 - six] Cross-Eval:
+  [Cross-Eval] Target: 6 - six | Acc: 99.90% | Failures: 1/958
+  Avg Top-5 Confusion: 4 - four (29.33%), 6 - six (29.19%), 2 - two (10.86%), 1 - one (8.83%), 7 - seven (6.51%)
+
+[Round 5 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 5 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 5 Global Full Model Evaluation ---
+Overall Accuracy: 52.61%
+Per-Class Accuracy:
+  Class 0 - zero: 93.16% (913/980)
+  Class 1 - one: 77.00% (874/1135)
+  Class 2 - two: 80.04% (826/1032)
+  Class 3 - three: 64.85% (655/1010)
+  Class 4 - four: 88.19% (866/982)
+  Class 5 - five: 3.03% (27/892)
+  Class 6 - six: 14.20% (136/958)
+  Class 7 - seven: 82.20% (845/1028)
+  Class 8 - eight: 12.22% (119/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 6 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 98.67% | Failures: 13/980
+  Avg Top-5 Confusion: 4 - four (32.12%), 0 - zero (27.93%), 6 - six (20.52%), 8 - eight (9.12%), 5 - five (5.19%)
+
+[Round 6 | Client 0 | Class 1 - one] Cross-Eval:
+  [Cross-Eval] Target: 1 - one | Acc: 40.53% | Failures: 675/1135
+  Avg Top-5 Confusion: 8 - eight (17.11%), 1 - one (15.56%), 5 - five (13.99%), 6 - six (13.97%), 9 - nine (10.65%)
+
+[Round 6 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 6 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 6 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 6 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 6 | Client 2 | Class 6 - six] Cross-Eval:
+
+[Round 6 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 6 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 6 Global Full Model Evaluation ---
+Overall Accuracy: 55.40%
+Per-Class Accuracy:
+  Class 0 - zero: 91.63% (898/980)
+  Class 1 - one: 77.62% (881/1135)
+  Class 2 - two: 62.89% (649/1032)
+  Class 3 - three: 73.56% (743/1010)
+  Class 4 - four: 84.83% (833/982)
+  Class 5 - five: 11.43% (102/892)
+  Class 6 - six: 34.24% (328/958)
+  Class 7 - seven: 83.56% (859/1028)
+  Class 8 - eight: 25.36% (247/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 7 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 0.00% | Failures: 980/980
+  Avg Top-5 Confusion: 6 - six (35.73%), 0 - zero (32.52%), 8 - eight (16.19%), 5 - five (6.99%), 4 - four (5.06%)
+
+[Round 7 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 7 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 7 | Client 1 | Class 3 - three] Cross-Eval:
+  [Cross-Eval] Target: 3 - three | Acc: 92.97% | Failures: 71/1010
+  Avg Top-5 Confusion: 8 - eight (22.64%), 3 - three (22.33%), 0 - zero (20.23%), 9 - nine (16.35%), 2 - two (5.20%)
+
+[Round 7 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 7 | Client 1 | Class 5 - five] Cross-Eval:
+  [Cross-Eval] Target: 5 - five | Acc: 99.89% | Failures: 1/892
+  Avg Top-5 Confusion: 6 - six (24.87%), 5 - five (23.05%), 7 - seven (13.81%), 0 - zero (12.89%), 9 - nine (10.41%)
+
+[Round 7 | Client 2 | Class 6 - six] Cross-Eval:
+
+[Round 7 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 7 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 7 Global Full Model Evaluation ---
+Overall Accuracy: 56.13%
+Per-Class Accuracy:
+  Class 0 - zero: 85.71% (840/980)
+  Class 1 - one: 80.00% (908/1135)
+  Class 2 - two: 60.37% (623/1032)
+  Class 3 - three: 70.20% (709/1010)
+  Class 4 - four: 82.08% (806/982)
+  Class 5 - five: 22.31% (199/892)
+  Class 6 - six: 38.41% (368/958)
+  Class 7 - seven: 80.74% (830/1028)
+  Class 8 - eight: 33.88% (330/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 8 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 0.10% | Failures: 979/980
+  Avg Top-5 Confusion: 6 - six (38.36%), 0 - zero (34.86%), 8 - eight (15.17%), 5 - five (5.51%), 4 - four (3.81%)
+
+[Round 8 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 8 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 8 | Client 1 | Class 3 - three] Cross-Eval:
+  [Cross-Eval] Target: 3 - three | Acc: 99.01% | Failures: 10/1010
+  Avg Top-5 Confusion: 8 - eight (22.92%), 3 - three (22.49%), 0 - zero (20.59%), 9 - nine (16.31%), 2 - two (5.04%)
+
+[Round 8 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 8 | Client 1 | Class 5 - five] Cross-Eval:
+  [Cross-Eval] Target: 5 - five | Acc: 97.31% | Failures: 24/892
+  Avg Top-5 Confusion: 6 - six (23.36%), 5 - five (22.81%), 0 - zero (14.40%), 1 - one (13.69%), 7 - seven (12.84%)
+
+[Round 8 | Client 2 | Class 6 - six] Cross-Eval:
+  [Cross-Eval] Target: 6 - six | Acc: 99.48% | Failures: 5/958
+  Avg Top-5 Confusion: 5 - five (28.77%), 6 - six (28.45%), 2 - two (13.12%), 7 - seven (12.95%), 1 - one (9.62%)
+
+[Round 8 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 8 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 8 Global Full Model Evaluation ---
+Overall Accuracy: 55.89%
+Per-Class Accuracy:
+  Class 0 - zero: 82.65% (810/980)
+  Class 1 - one: 76.74% (871/1135)
+  Class 2 - two: 57.56% (594/1032)
+  Class 3 - three: 70.89% (716/1010)
+  Class 4 - four: 75.05% (737/982)
+  Class 5 - five: 32.74% (292/892)
+  Class 6 - six: 38.62% (370/958)
+  Class 7 - seven: 81.42% (837/1028)
+  Class 8 - eight: 37.17% (362/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 9 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 0.00% | Failures: 980/980
+  Avg Top-5 Confusion: 6 - six (40.18%), 0 - zero (36.60%), 8 - eight (13.29%), 4 - four (4.13%), 5 - five (4.00%)
+
+[Round 9 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 9 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 9 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 9 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 9 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 9 | Client 2 | Class 6 - six] Cross-Eval:
+
+[Round 9 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 9 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 9 Global Full Model Evaluation ---
+Overall Accuracy: 57.25%
+Per-Class Accuracy:
+  Class 0 - zero: 80.51% (789/980)
+  Class 1 - one: 78.33% (889/1135)
+  Class 2 - two: 53.10% (548/1032)
+  Class 3 - three: 69.80% (705/1010)
+  Class 4 - four: 77.49% (761/982)
+  Class 5 - five: 39.35% (351/892)
+  Class 6 - six: 48.64% (466/958)
+  Class 7 - seven: 79.86% (821/1028)
+  Class 8 - eight: 40.55% (395/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------
+
+[Round 10 | Client 0 | Class 0 - zero] Cross-Eval:
+  [Cross-Eval] Target: 0 - zero | Acc: 0.00% | Failures: 980/980
+  Avg Top-5 Confusion: 6 - six (43.57%), 0 - zero (39.28%), 8 - eight (9.66%), 5 - five (3.09%), 4 - four (2.55%)
+
+[Round 10 | Client 0 | Class 1 - one] Cross-Eval:
+
+[Round 10 | Client 0 | Class 2 - two] Cross-Eval:
+
+[Round 10 | Client 1 | Class 3 - three] Cross-Eval:
+
+[Round 10 | Client 1 | Class 4 - four] Cross-Eval:
+
+[Round 10 | Client 1 | Class 5 - five] Cross-Eval:
+
+[Round 10 | Client 2 | Class 6 - six] Cross-Eval:
+
+[Round 10 | Client 2 | Class 7 - seven] Cross-Eval:
+
+[Round 10 | Client 2 | Class 8 - eight] Cross-Eval:
+
+--- Round 10 Global Full Model Evaluation ---
+Overall Accuracy: 56.96%
+Per-Class Accuracy:
+  Class 0 - zero: 81.22% (796/980)
+  Class 1 - one: 79.65% (904/1135)
+  Class 2 - two: 58.53% (604/1032)
+  Class 3 - three: 65.64% (663/1010)
+  Class 4 - four: 74.75% (734/982)
+  Class 5 - five: 36.10% (322/892)
+  Class 6 - six: 48.64% (466/958)
+  Class 7 - seven: 79.38% (816/1028)
+  Class 8 - eight: 40.14% (391/974)
+  Class 9 - nine: 0.00% (0/1009)
+------------------------------

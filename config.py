@@ -17,10 +17,10 @@ class Config:
     num_workers: int = 0
 
     learning_rate: float = 0.001
-    target_sparsity: float = 0.995
+    target_sparsity: float = 0.997
 
     num_clients: int = 5
-    num_rounds: int = 50
+    num_rounds: int = 10
     local_epochs: int = 5 
 
     gate_lr: float = 0.1
@@ -32,7 +32,7 @@ class Config:
     use_mean_ablation: bool = False
     partition_method: str = "iid"
     checkpoint_dir: str = "./checkpoints/iid_run"
-    resume: bool = True 
+    resume: bool = False
 
     use_fedrs: bool = False
     fedrs_alpha: float = 0.4

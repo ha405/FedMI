@@ -12,17 +12,16 @@ from dataset import get_dataset, partition_by_class, get_dataloader, get_test_da
 from fed import run_federated_training
 
 CLIENT_CLASS_MAP = {
-    0: [0, 1, 2],       
-    1: [0, 3, 4],       
-    2: [0, 6, 7]
+    0: [1,],       
+    1: [5,],       
+    2: [9,]
 }
 
 CLASSES_TO_DISCOVER = {
-    0: [0, 1, 2],       
-    1: [0, 3, 4],       
-    2: [0, 6, 7]
+    0: [1,],       
+    1: [5,],       
+    2: [9,]
 }
-
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)

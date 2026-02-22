@@ -7,6 +7,44 @@ from analysis.visualizer.base import BaseVisualizer
 class CrossEvalVisualizer(BaseVisualizer):
     def __init__(self, output_dir):
         super().__init__(output_dir)
+        self.config = self._load_config()
+        self.class_names = None
+    
+    def _load_config(self):
+        """Load config.json to get model parameters."""
+        config_path = os.path.join(self.output_dir, 'config.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    
+    def _load_class_names(self):
+        """
+        Load class names based on config.num_classes.
+        Use numeric labels 0..N-1, derived from config.
+        """
+        if self.class_names is not None:
+            return self.class_names
+        
+        num_classes = self.config.get('num_classes', 10)
+        # Always use numeric labels based on config.num_classes
+        self.class_names = [str(i) for i in range(num_classes)]
+        
+        return self.class_names
+    
+    def _get_class_display_name(self, class_idx):
+        """Map class index to display name."""
+        class_names = self._load_class_names()
+        try:
+            idx = int(class_idx)
+            if 0 <= idx < len(class_names):
+                return str(class_names[idx])
+        except (ValueError, TypeError):
+            pass
+        return str(class_idx)
 
     def extract_metrics(self):
         round_keys = sorted(self.data.keys(), key=lambda r: int(r.split('_')[1]))
@@ -45,13 +83,15 @@ class CrossEvalVisualizer(BaseVisualizer):
         for i, client in enumerate(clients):
             ax = axes[i]
             client_data = extracted_data[client]
-            classes = sorted(client_data.keys())
+            class_indices = sorted(client_data.keys())
             
-            for cls in classes:
-                rounds = client_data[cls]['rounds']
-                accs = client_data[cls]['cross_acc']
+            for class_idx in class_indices:
+                class_display_name = self._get_class_display_name(class_idx)
+                data = client_data[class_idx]
+                rounds = client_data[class_idx]['rounds']
+                accs = client_data[class_idx]['cross_acc']
                 if not rounds: continue
-                ax.plot(rounds, accs, marker='o', linestyle='-', linewidth=2, label=f"{cls}")
+                ax.plot(rounds, accs, marker='o', linestyle='-', linewidth=2, label=f"Class {class_display_name}")
             
             ax.set_title(f"{client}", fontsize=14, fontweight='bold')
             ax.set_ylabel("Accuracy (%)")
@@ -85,7 +125,9 @@ class CrossEvalVisualizer(BaseVisualizer):
                 
                 if not rounds: continue
                 gap = glob - cross
-                ax.plot(rounds, gap, marker='s', linestyle='--', linewidth=2, label=f"{cls}")
+                # map class index to display name
+                disp = self._get_class_display_name(cls)
+                ax.plot(rounds, gap, marker='s', linestyle='--', linewidth=2, label=f"Class {disp}")
                 ax.axhline(0, color='black', linewidth=1, alpha=0.3)
 
             ax.set_title(f"{client}", fontsize=14, fontweight='bold')

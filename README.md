@@ -27,10 +27,15 @@ Outputs are saved in `checkpoints/<experiment_name>/`.
 #### Automatic Visualizations (in `figures/`)
 | Plot Name | What it Shows |
 | :--- | :--- |
+| `class_distribution_individual_*.png` | **Per-Client Class Distribution** - Histograms showing sample count per class for each client (Non-IID partitions only). |
+| `class_distribution_stacked_*.png` | **Stacked Bar Chart** - All clients' class composition side-by-side for easy comparison. |
+| `class_distribution_heatmap_*.png` | **Class Proportion Heatmap** - Color intensity shows what fraction of each client's data is from each class. |
 | `heatmap_overlap_round_X.png` | **Red**=Local-only, **Blue**=Global-only, **Green**=Preserved/Shared neurons. |
 | `cross_accuracy_drift_gap.png` | Performance gap between Client Model and Global Model on local data. |
 | `Specialist_Distinctness.png` | Low IoU = Clients are specializing in disjoint tasks. |
 | `sensitivity_shared_neuron_impact.png` | Validation accuracy after injecting shared neurons. |
+
+**Note:** Class distribution visualizations are automatically generated for non-IID partitioning methods (Dirichlet, systematic skew, manual). See [Class Distribution README](analysis/visualizer/CLASS_DISTRIBUTION_README.md) for details.
 
 #### Interactive Viewer
 1. Open `checkpoints/<experiment_name>/visualizer.html` in your browser.

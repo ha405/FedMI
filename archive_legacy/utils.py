@@ -84,13 +84,19 @@ def evaluate_circuit(model, testloader, circuit, target_class, config, layer_mea
         for i in range(len(top5_inds)):
             idx = top5_inds[i].item()
             prob = top5_vals[i].item()
-            name = class_names[idx] if class_names else str(idx)
+            if class_names and 0 <= idx < len(class_names):
+                name = class_names[idx]
+            else:
+                name = str(idx)
             error_msg_parts.append(f"{name} ({prob*100:.2f}%)")
             
         error_msg = ", ".join(error_msg_parts)
         
         acc = 100 * correct / total
-        t_name = class_names[target_class] if class_names else target_class
+        if class_names and 0 <= target_class < len(class_names):
+            t_name = class_names[target_class]
+        else:
+            t_name = str(target_class)
         
         log_file.write(f"  [Cross-Eval] Target: {t_name} | Acc: {acc:.2f}% | Failures: {failure_count}/{total}\n")
         log_file.write(f"  Avg Top-5 Confusion: {error_msg}\n")
@@ -161,7 +167,10 @@ def evaluate_detailed(model, testloader, config, log_file=None, class_names=None
         for i in range(num_classes):
             if class_total[i] > 0:
                 acc = 100 * class_correct[i] / class_total[i]
-                c_name = class_names[i] if class_names else str(i)
+                if class_names and 0 <= i < len(class_names):
+                    c_name = class_names[i]
+                else:
+                    c_name = str(i)
                 log_file.write(f"  Class {c_name}: {acc:.2f}% ({int(class_correct[i])}/{int(class_total[i])})\n")
             else:
                 log_file.write(f"  Class {i}: N/A (No samples)\n")

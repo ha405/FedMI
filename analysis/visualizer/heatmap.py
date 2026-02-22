@@ -6,16 +6,65 @@ import seaborn as sns
 from matplotlib.colors import ListedColormap
 from analysis.visualizer.base import BaseVisualizer
 
-LAYER_DIMS = {'conv1': 32, 'conv2': 64, 'conv3': 128}
-LAYER_NAMES = ['conv1', 'conv2', 'conv3']
-
 class HeatmapVisualizer(BaseVisualizer):
     def __init__(self, output_dir):
         super().__init__(output_dir)
+        self.config = self._load_config()
+        self.layer_names = None
+        self.layer_dims = None
+    
+    def _load_config(self):
+        """Load config.json to get model parameters."""
+        config_path = os.path.join(self.output_dir, 'config.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"[{self.__class__.__name__}] Error loading config: {e}")
+        return {}
+    
+    def _infer_layer_info(self, round_data):
+        """Infer layer names and dimensions from circuit data and config."""
+        if self.layer_names is not None:
+            return self.layer_names, self.layer_dims
+        
+        # Extract layer names from circuit data
+        layer_names = set()
+        if "clients_local_model" in round_data:
+            for client_data in round_data["clients_local_model"].values():
+                for class_data in client_data.values():
+                    active_nodes = class_data.get("active_nodes", {})
+                    layer_names.update(active_nodes.keys())
+        
+        layer_names = sorted(list(layer_names))
+        
+        # Get layer dimensions from config
+        conv_channels = self.config.get('conv_channels', [32, 64, 128])
+        layer_dims = {}
+        
+        for ln in layer_names:
+            if 'conv' in ln.lower():
+                # Extract conv layer number
+                conv_idx = int(''.join(filter(str.isdigit, ln))) - 1
+                if conv_idx < len(conv_channels):
+                    layer_dims[ln] = conv_channels[conv_idx]
+                else:
+                    layer_dims[ln] = conv_channels[-1]
+            else:
+                layer_dims[ln] = 128  # Default for non-conv layers
+        
+        self.layer_names = layer_names
+        self.layer_dims = layer_dims
+        
+        return self.layer_names, self.layer_dims
 
     def create_overlap_heatmap(self, round_key):
         local_data = self.data[round_key]["clients_local_model"]
         global_data = self.data[round_key]["clients_global_model"]
+        
+        # Infer layer info from data
+        self._infer_layer_info(self.data[round_key])
         
         client_keys = sorted(local_data.keys(), key=lambda c: int(c.split('_')[1]))
 
@@ -23,14 +72,14 @@ class HeatmapVisualizer(BaseVisualizer):
         for client in client_keys:
             total_rows += len(local_data[client].keys())
 
-        fig, axes = plt.subplots(len(LAYER_NAMES), 1, figsize=(20, 0.5 * total_rows + 4), squeeze=False)
+        fig, axes = plt.subplots(len(self.layer_names), 1, figsize=(20, 0.5 * total_rows + 4), squeeze=False)
         axes = axes.flatten()
 
         fig.suptitle(f"Local vs Global Circuit Overlap (Round {round_key.split('_')[1]})", fontsize=16)
 
-        for i, layer in enumerate(LAYER_NAMES):
+        for i, layer in enumerate(self.layer_names):
             ax = axes[i]
-            num_channels = LAYER_DIMS[layer]
+            num_channels = self.layer_dims[layer]
             
             heatmap_data = np.zeros((total_rows, num_channels))
             y_labels = []
@@ -44,13 +93,15 @@ class HeatmapVisualizer(BaseVisualizer):
                     y_labels.append(f"{client_key} | {class_name}")
 
                     try:
-                        local_indices = set(local_data[client_key][class_name]["active_nodes"].get(layer, []))
-                    except (KeyError, TypeError):
+                        local_node_list = local_data[client_key][class_name]["active_nodes"].get(layer, [])
+                        local_indices = set(int(idx) for idx in local_node_list)
+                    except (KeyError, TypeError, ValueError):
                         local_indices = set()
 
                     try:
-                        global_indices = set(global_data[client_key][class_name]["active_nodes"].get(layer, []))
-                    except (KeyError, TypeError):
+                        global_node_list = global_data[client_key][class_name]["active_nodes"].get(layer, [])
+                        global_indices = set(int(idx) for idx in global_node_list)
+                    except (KeyError, TypeError, ValueError):
                         global_indices = set()
 
                     union_indices = local_indices.union(global_indices)

@@ -185,7 +185,14 @@ def main():
 
     trainset, testset = get_dataset(config)
     testloader = get_test_dataloader(testset, config)
-    class_names = trainset.classes
+    # Use dataset class names only when they exactly match configured num_classes
+    nc = getattr(config, 'num_classes', None)
+    if hasattr(trainset, 'classes') and nc is not None and len(trainset.classes) == nc:
+        class_names = list(trainset.classes)
+    else:
+        if nc is None:
+            nc = len(getattr(trainset, 'classes', []))
+        class_names = [str(i) for i in range(nc)]
 
     circuits = load_circuits(args.checkpoint_dir)
     client_models = load_client_models(args.checkpoint_dir, args.round, args.num_clients, config)

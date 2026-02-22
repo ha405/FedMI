@@ -104,7 +104,11 @@ class FederatedClient:
         physical_connectivity = extract_sparse_connectivity(model)
 
         for tc in classes_to_analyze:
-            name = self.class_names[tc] if self.class_names else str(tc)
+            # Safely map class index to name, with bounds check
+            if self.class_names and 0 <= tc < len(self.class_names):
+                name = self.class_names[tc]
+            else:
+                name = str(tc)
             
             # 1. Discover Circuit
             circ = discover_client_circuit(model, self.dataloader, tc, self.config, layer_means=layer_means)

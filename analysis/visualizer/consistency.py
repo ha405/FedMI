@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from typing import List, Dict
 from analysis.visualizer.base import BaseVisualizer
 
-LAYER_NAMES = ['conv1', 'conv2', 'conv3']
-
 def calculate_iou(circuit1: List[int], circuit2: List[int]) -> float:
     set1 = set(circuit1)
     set2 = set(circuit2)
@@ -18,15 +16,36 @@ def calculate_iou(circuit1: List[int], circuit2: List[int]) -> float:
     return intersection / union
 
 def get_active_nodes(circuit_data: Dict, layer_name: str) -> List[int]:
-    if "active_nodes" in circuit_data and layer_name in circuit_data["active_nodes"]:
-        return circuit_data["active_nodes"][layer_name]
-    elif layer_name in circuit_data:
-        return circuit_data[layer_name]
-    return []
+    try:
+        if "active_nodes" in circuit_data and layer_name in circuit_data["active_nodes"]:
+            nodes = circuit_data["active_nodes"][layer_name]
+        elif layer_name in circuit_data:
+            nodes = circuit_data[layer_name]
+        else:
+            return []
+        # Ensure all indices are integers
+        return [int(idx) for idx in nodes]
+    except (TypeError, ValueError):
+        return []
 
 class ConsistencyVisualizer(BaseVisualizer):
     def __init__(self, output_dir):
         super().__init__(output_dir)
+        self.layer_names = None
+    
+    def _extract_layer_names(self, circuit_data: Dict) -> List[str]:
+        """Extract layer names dynamically from circuit data."""
+        if self.layer_names is not None:
+            return self.layer_names
+        
+        layer_names = set()
+        for client_data in circuit_data.values():
+            for class_data in client_data.values():
+                active_nodes = class_data.get("active_nodes", {})
+                layer_names.update(active_nodes.keys())
+        
+        self.layer_names = sorted(list(layer_names))
+        return self.layer_names
 
     def analyze_inter_client_consistency(self):
         print("\n--- Inter-Client Consistency (Per Round) ---")
@@ -37,12 +56,15 @@ class ConsistencyVisualizer(BaseVisualizer):
         client_keys = sorted(first_round_data.keys())
         class_names = sorted(first_round_data[client_keys[0]].keys())
         
-        plot_data = {cls: {layer: [] for layer in LAYER_NAMES} for cls in class_names}
+        # Extract layer names dynamically
+        layer_names = self._extract_layer_names(first_round_data)
+        
+        plot_data = {cls: {layer: [] for layer in layer_names} for cls in class_names}
 
         for round_key in round_keys:
             round_data = self.data[round_key]["clients_global_model"]
             for class_name in class_names:
-                for layer_name in LAYER_NAMES:
+                for layer_name in layer_names:
                     consistency_ious = []
                     for client1_key, client2_key in itertools.combinations(client_keys, 2):
                         circuit1 = get_active_nodes(round_data[client1_key][class_name], layer_name)
@@ -60,7 +82,7 @@ class ConsistencyVisualizer(BaseVisualizer):
 
         for i, class_name in enumerate(class_names):
             ax = axes[i]
-            for layer_name in LAYER_NAMES:
+            for layer_name in layer_names:
                 ax.plot(range(1, len(round_keys) + 1), plot_data[class_name][layer_name], marker='o', label=layer_name)
             ax.set_title(f'Class: "{class_name}"')
             ax.set_ylabel('Avg IoU')
@@ -92,6 +114,9 @@ class ConsistencyVisualizer(BaseVisualizer):
         
         print(f"Analyzing stability for Class: '{target_class}'")
         
+        # Extract layer names dynamically
+        layer_names = self._extract_layer_names(self.data[round_keys[0]]["clients_global_model"])
+        
         round_transitions = [f"R{i}->R{i+1}" for i in range(1, len(round_keys))]
         num_clients = len(client_keys)
         fig, axes = plt.subplots(num_clients, 1, figsize=(10, 4 * num_clients), sharex=True, sharey=True)
@@ -101,7 +126,7 @@ class ConsistencyVisualizer(BaseVisualizer):
 
         for i, client_key in enumerate(client_keys):
             ax = axes[i]
-            plot_data = {layer: [] for layer in LAYER_NAMES}
+            plot_data = {layer: [] for layer in layer_names}
             
             for r_idx in range(len(round_keys) - 1):
                 round1_key, round2_key = round_keys[r_idx], round_keys[r_idx+1]
@@ -109,15 +134,15 @@ class ConsistencyVisualizer(BaseVisualizer):
                     c1_data_full = self.data[round1_key]["clients_global_model"][client_key][target_class]
                     c2_data_full = self.data[round2_key]["clients_global_model"][client_key][target_class]
                     
-                    for layer in LAYER_NAMES:
+                    for layer in layer_names:
                         c1_nodes = get_active_nodes(c1_data_full, layer)
                         c2_nodes = get_active_nodes(c2_data_full, layer)
                         iou = calculate_iou(c1_nodes, c2_nodes)
                         plot_data[layer].append(iou)
                 except KeyError:
-                    for layer in LAYER_NAMES: plot_data[layer].append(np.nan)
+                    for layer in layer_names: plot_data[layer].append(np.nan)
 
-            for layer in LAYER_NAMES:
+            for layer in layer_names:
                 ax.plot(round_transitions, plot_data[layer], marker='o', label=layer)
             
             ax.set_title(f'Client: {client_key}')

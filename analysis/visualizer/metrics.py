@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from typing import List, Dict
 from analysis.visualizer.base import BaseVisualizer
 
-LAYER_NAMES = ['conv1', 'conv2', 'conv3']
-
 def calculate_iou(circuit1: List[int], circuit2: List[int]) -> float:
     set1, set2 = set(circuit1), set(circuit2)
     intersection = len(set1.intersection(set2))
@@ -15,32 +13,55 @@ def calculate_iou(circuit1: List[int], circuit2: List[int]) -> float:
     return intersection / union if union > 0 else 1.0
 
 def get_active_indices(node_data, layer_name):
-    if "active_nodes" in node_data:
-        return node_data["active_nodes"].get(layer_name, [])
-    else:
-        return node_data.get(layer_name, [])
+    try:
+        if "active_nodes" in node_data:
+            nodes = node_data["active_nodes"].get(layer_name, [])
+        else:
+            nodes = node_data.get(layer_name, [])
+        # Ensure all indices are integers
+        return [int(idx) for idx in nodes]
+    except (TypeError, ValueError):
+        return []
 
 class MetricsVisualizer(BaseVisualizer):
     def __init__(self, output_dir):
         super().__init__(output_dir)
+        self.layer_names = None
+    
+    def _extract_layer_names(self, circuit_data: Dict) -> List[str]:
+        """Extract layer names dynamically from circuit data."""
+        if self.layer_names is not None:
+            return self.layer_names
+        
+        layer_names = set()
+        for client_data in circuit_data.values():
+            for class_data in client_data.values():
+                active_nodes = class_data.get("active_nodes", {})
+                layer_names.update(active_nodes.keys())
+        
+        self.layer_names = sorted(list(layer_names))
+        return self.layer_names
 
     def analyze_specialist_distinctness(self, final_round_data: Dict):
         print("\n--- Analysis: Specialist Distinctness (Final Round) ---")
         
         client_keys = sorted(final_round_data.keys(), key=lambda c: int(c.split('_')[1]))
         
-        client_aggregated_circuits = {c: {l: set() for l in LAYER_NAMES} for c in client_keys}
+        # Extract layer names dynamically
+        layer_names = self._extract_layer_names(final_round_data)
+        
+        client_aggregated_circuits = {c: {l: set() for l in layer_names} for c in client_keys}
         
         for client in client_keys:
             classes = final_round_data[client].keys()
             for cls in classes:
-                for layer in LAYER_NAMES:
+                for layer in layer_names:
                     indices = get_active_indices(final_round_data[client][cls], layer)
                     client_aggregated_circuits[client][layer].update(indices)
 
-        avg_iou_by_layer = {layer: [] for layer in LAYER_NAMES}
+        avg_iou_by_layer = {layer: [] for layer in layer_names}
         
-        for layer_name in LAYER_NAMES:
+        for layer_name in layer_names:
             layer_ious = []
             for i, j in itertools.combinations(range(len(client_keys)), 2):
                 client1, client2 = client_keys[i], client_keys[j]
@@ -71,6 +92,9 @@ class MetricsVisualizer(BaseVisualizer):
         last_round = self.data[round_keys[-1]]["clients_local_model"]
         client_keys = sorted(last_round.keys(), key=lambda c: int(c.split('_')[1]))
         
+        # Extract layer names dynamically
+        layer_names = self._extract_layer_names(last_round)
+        
         for client_key in client_keys:
             classes = sorted(last_round[client_key].keys())
             num_classes = len(classes)
@@ -83,21 +107,21 @@ class MetricsVisualizer(BaseVisualizer):
 
             for i, class_name in enumerate(classes):
                 ax = axes[i]
-                plot_data = {layer: [] for layer in LAYER_NAMES}
+                plot_data = {layer: [] for layer in layer_names}
 
                 for round_key in round_keys:
                     try:
                         local_node = self.data[round_key]["clients_local_model"][client_key][class_name]
                         global_node = self.data[round_key]["clients_global_model"][client_key][class_name]
                         
-                        for layer in LAYER_NAMES:
+                        for layer in layer_names:
                             l_circ = get_active_indices(local_node, layer)
                             g_circ = get_active_indices(global_node, layer)
                             plot_data[layer].append(calculate_iou(l_circ, g_circ))
                     except KeyError:
-                        for layer in LAYER_NAMES: plot_data[layer].append(np.nan)
+                        for layer in layer_names: plot_data[layer].append(np.nan)
 
-                for layer in LAYER_NAMES:
+                for layer in layer_names:
                     valid_indices = [j for j, val in enumerate(plot_data[layer]) if not np.isnan(val)]
                     valid_rounds = [j+1 for j in valid_indices]
                     valid_ious = [plot_data[layer][j] for j in valid_indices]

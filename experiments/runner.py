@@ -5,6 +5,7 @@ import os
 import copy
 import json
 import shutil
+import sys
 
 from core.dataset import get_dataset, get_test_dataloader, get_dataloader
 from core.dataset import partition_iid, partition_dirichlet, partition_by_class, partition_systematic_skew
@@ -13,6 +14,7 @@ from core.utils import load_latest_checkpoint, save_checkpoint, save_circuits_to
 from federated.client import FederatedClient
 from federated.server import FederatedServer
 from circuits.evaluation import evaluate_detailed
+from analysis.visualizer.class_distribution import ClassDistributionVisualizer
 
 class ExperimentRunner:
     def __init__(self, config):
@@ -56,7 +58,14 @@ class ExperimentRunner:
         print(f"Loading dataset: {self.config.dataset_name}")
         trainset, testset = get_dataset(self.config)
         self.testloader = get_test_dataloader(testset, self.config)
-        self.class_names = trainset.classes
+        # Determine class names based on config.num_classes.
+        # If dataset provides class names and matches configured size, use them; otherwise use numeric labels 0..N-1
+        configured_nc = getattr(self.config, 'num_classes', None)
+        if hasattr(trainset, 'classes') and configured_nc is not None and len(trainset.classes) == configured_nc:
+            self.class_names = list(trainset.classes)
+        else:
+            nc = configured_nc if configured_nc is not None else getattr(self.config, 'num_classes', 10)
+            self.class_names = [str(i) for i in range(nc)]
         
         # 3. Partitioning
         print(f"Partitioning data using method: {self.config.partition_method}")
@@ -79,6 +88,18 @@ class ExperimentRunner:
         partition_path = os.path.join(self.dirs["partitions"], "client_partitions.json")
         with open(partition_path, 'w') as f:
             json.dump(client_indices, f)
+            
+        # Generate class distribution visualizations (especially useful for non-IID partitions)
+        if self.config.partition_method in ["dirichlet", "systematic_skew", "manual"]:
+            try:
+                visualizer = ClassDistributionVisualizer(self.config.output_dir, 
+                                                        partition_method=self.config.partition_method)
+                visualizer.run(dataset_name=self.config.dataset_name, 
+                              class_names=list(self.class_names))
+            except Exception as e:
+                print(f"Warning: Failed to generate class distribution plots: {e}")
+                import traceback
+                traceback.print_exc()
             
         # 4. Clients
         self.clients = []

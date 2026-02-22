@@ -86,7 +86,11 @@ class FederatedServer:
                 classes_for_this_client = self.config.classes_to_discover_per_client[i]
 
             for tc in classes_for_this_client:
-                name = self.class_names[tc]
+                # Safely map class index to name, with bounds check
+                if self.class_names and 0 <= tc < len(self.class_names):
+                    name = self.class_names[tc]
+                else:
+                    name = str(tc)
                 
                 # A. Discovery on Global Model using Client Data
                 circ_global = discover_client_circuit(gm_copy, client.dataloader, tc, self.config, layer_means=global_means)

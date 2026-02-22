@@ -1,5 +1,6 @@
 {
-    "device": "cuda",
+    "_comment": "Non-IID pathological (manual/by_class) — each client receives exactly 2 distinct classes. Circuit collapse expected.",
+    "device": "cpu",
     "seed": 42,
     "output_dir": "./checkpoints/non_iid_pathological",
     "dataset_name": "MNIST",
@@ -46,5 +47,12 @@
     "target_sparsity": 0.997,
     "gate_lr": 0.1,
     "l0_lambda": 0.01,
-    "discovery_steps": 200
+    "discovery_steps": 200,
+    "_comment_classes": "null = auto-derived from manual_allocation: client 0 -> [0,1], client 1 -> [2,3], etc.",
+    "classes_to_analyze": null,
+    "classes_to_discover_per_client": null,
+    "use_mean_ablation": false,
+    "use_fedrs": false,
+    "fedrs_alpha": 0.4,
+    "resume": false
 }

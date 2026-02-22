@@ -89,10 +89,17 @@ class FederatedClient:
         """
         client_circuits = {}
         
-        # Determine which classes to analyze for this client
-        classes_to_analyze = self.config.classes_to_analyze
+        # Class resolution priority:
+        # 1. Per-client override (set by runner.setup() from partition, or by user explicitly)
+        # 2. Global classes_to_analyze (user-set explicit override)
+        # 3. Safe fallback: all classes 0..num_classes-1
         if self.config.classes_to_discover_per_client and self.client_id in self.config.classes_to_discover_per_client:
             classes_to_analyze = self.config.classes_to_discover_per_client[self.client_id]
+        elif self.config.classes_to_analyze is not None:
+            classes_to_analyze = self.config.classes_to_analyze
+        else:
+            classes_to_analyze = list(range(self.config.num_classes))
+
             
         # Compute layer means if needed (for mean ablation)
         layer_means = None

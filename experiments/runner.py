@@ -9,6 +9,7 @@ import sys
 
 from core.dataset import get_dataset, get_test_dataloader, get_dataloader
 from core.dataset import partition_iid, partition_dirichlet, partition_by_class, partition_systematic_skew
+from core.dataset import get_classes_for_client
 from core.models import get_model
 from core.utils import load_latest_checkpoint, save_checkpoint, save_circuits_to_json
 from federated.client import FederatedClient
@@ -101,6 +102,16 @@ class ExperimentRunner:
                 import traceback
                 traceback.print_exc()
             
+        # Auto-populate classes_to_discover_per_client from partition if not already set.
+        # This ensures circuit discovery always targets the classes that actually exist in
+        # each client's data, rather than relying on any hardcoded fallback.
+        if self.config.classes_to_discover_per_client is None:
+            self.config.classes_to_discover_per_client = {
+                i: get_classes_for_client(trainset, indices)
+                for i, indices in enumerate(client_indices)
+            }
+            print(f"[Runner] Auto-derived classes_to_discover_per_client: {self.config.classes_to_discover_per_client}")
+
         # 4. Clients
         self.clients = []
         for i, indices in enumerate(client_indices):

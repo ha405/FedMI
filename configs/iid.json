@@ -1,5 +1,6 @@
 {
-    "device": "cuda",
+    "_comment": "IID baseline — uniform data distribution across all clients.",
+    "device": "cpu",
     "seed": 42,
     "output_dir": "./checkpoints/iid_experiment",
     "dataset_name": "MNIST",
@@ -7,13 +8,17 @@
     "batch_size": 256,
     "num_workers": 0,
     "model_name": "SimpleCNN",
-    "conv_channels": [32, 64, 128],
+    "conv_channels": [
+        32,
+        64,
+        128
+    ],
     "num_classes": 10,
     "num_clients": 5,
     "num_rounds": 10,
     "local_epochs": 5,
     "partition_method": "iid",
-    "dirichlet_alpha": null,
+    "dirichlet_alpha": 0.5,
     "skew_profile": null,
     "manual_allocation": null,
     "train_mode": "sparse",
@@ -21,5 +26,12 @@
     "target_sparsity": 0.997,
     "gate_lr": 0.1,
     "l0_lambda": 0.01,
-    "discovery_steps": 200
+    "discovery_steps": 200,
+    "_comment_classes": "null = auto-derived: IID clients will all receive all 10 classes.",
+    "classes_to_analyze": null,
+    "classes_to_discover_per_client": null,
+    "use_mean_ablation": false,
+    "use_fedrs": false,
+    "fedrs_alpha": 0.4,
+    "resume": false
 }

@@ -80,10 +80,17 @@ class FederatedServer:
                 
             cg_circs = {}
             
-            # Determine classes
-            classes_for_this_client = self.config.classes_to_analyze
+            # Class resolution priority (mirrors client.discover_circuits):
+            # 1. Per-client override (populated by runner.setup() or user)
+            # 2. Global classes_to_analyze (user-set explicit override)
+            # 3. Safe fallback: all classes 0..num_classes-1
             if self.config.classes_to_discover_per_client and i in self.config.classes_to_discover_per_client:
                 classes_for_this_client = self.config.classes_to_discover_per_client[i]
+            elif self.config.classes_to_analyze is not None:
+                classes_for_this_client = self.config.classes_to_analyze
+            else:
+                classes_for_this_client = list(range(self.config.num_classes))
+
 
             for tc in classes_for_this_client:
                 # Safely map class index to name, with bounds check

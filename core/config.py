@@ -44,9 +44,11 @@ class ExperimentConfig:
     gate_lr: float = 0.1
     l0_lambda: float = 0.01
     discovery_steps: int = 200
-    classes_to_analyze: List[int] = field(default_factory=lambda: [0, 1, 2, 7])
-    # Which classes to discover per client (if None, uses classes_to_analyze)
-    # {client_id: [class_list]}
+    # If None (default), classes are auto-derived from the client's actual partition at runtime.
+    # Set explicitly (e.g. [0, 1, 3]) to override and analyze specific classes regardless of partition.
+    classes_to_analyze: Optional[List[int]] = None
+    # Per-client class override: {client_id: [class_list]}.
+    # If None, populated automatically from the partition during runner.setup().
     classes_to_discover_per_client: Optional[Dict[int, List[int]]] = None
     
     use_mean_ablation: bool = False
@@ -69,8 +71,14 @@ class ExperimentConfig:
     @classmethod
     def load(cls, path: str):
         import json
+        import dataclasses
         if not os.path.exists(path):
             return cls() # Default
         with open(path, 'r') as f:
             data = json.load(f)
+        # Strip documentation-only keys (prefixed with "_") and any unknown fields
+        # so config JSONs can carry inline comments without breaking construction.
+        known_fields = {f.name for f in dataclasses.fields(cls)}
+        data = {k: v for k, v in data.items() if k in known_fields}
         return cls(**data)
+

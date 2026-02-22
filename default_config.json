@@ -1,40 +1,44 @@
 {
-    "device": "cuda",
+    "_comment": "Default config — all fields listed. Loaded by ExperimentConfig.load(). Override per-experiment in configs/.",
+
+    "device": "cpu",
     "seed": 42,
     "output_dir": "./checkpoints/experiment_run",
+
     "dataset_name": "MNIST",
     "data_root": "./data",
     "batch_size": 256,
     "num_workers": 0,
+
     "model_name": "SimpleCNN",
-    "conv_channels": [
-        32,
-        64,
-        128
-    ],
+    "conv_channels": [32, 64, 128],
     "num_classes": 10,
+
     "num_clients": 5,
     "num_rounds": 10,
     "local_epochs": 5,
+
     "partition_method": "iid",
     "dirichlet_alpha": 0.5,
     "skew_profile": null,
     "manual_allocation": null,
+
     "train_mode": "sparse",
     "learning_rate": 0.001,
-    "target_sparsity": 0.997,
+
+    "target_sparsity": 0.99,
     "gate_lr": 0.1,
     "l0_lambda": 0.01,
     "discovery_steps": 200,
-    "classes_to_analyze": [
-        0,
-        1,
-        2,
-        7
-    ],
+
+    "_comment_classes": "null = auto-derived from partition at runtime (recommended). Set explicitly to restrict discovery to specific classes.",
+    "classes_to_analyze": null,
     "classes_to_discover_per_client": null,
+
     "use_mean_ablation": false,
+
     "use_fedrs": false,
     "fedrs_alpha": 0.4,
+
     "resume": false
 }

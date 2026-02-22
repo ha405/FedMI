@@ -180,3 +180,21 @@ def get_client_class_counts(dataloader, num_classes):
         for label, count in zip(unique, c):
             counts[label] += count
     return counts
+
+def get_classes_for_client(dataset, indices: List[int]) -> List[int]:
+    """
+    Returns the sorted list of unique class labels that appear in a client's
+    data partition. Used to auto-populate classes_to_discover_per_client
+    when the user has not set it explicitly in config.
+
+    Args:
+        dataset: The full training dataset (must support integer indexing and return (sample, label)).
+        indices:  The subset of dataset indices belonging to this client.
+
+    Returns:
+        Sorted list of unique integer class labels present in the partition.
+    """
+    labels = get_labels(dataset)
+    client_labels = labels[np.array(indices, dtype=int)]
+    return sorted(int(c) for c in np.unique(client_labels))
+

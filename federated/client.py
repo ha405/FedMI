@@ -78,8 +78,7 @@ class FederatedClient:
                 
         # Final sparsity application to ensure target is met
         if self.config.train_mode == 'sparse':
-            apply_weight_sparsity(model, self.config.target_sparsity)
-            
+            apply_weight_sparsity(model, self.config.target_sparsity) 
         return model
 
     def discover_circuits(self, model, testloader, test_layer_means=None):
@@ -88,11 +87,6 @@ class FederatedClient:
         Returns a dictionary of discovered circuits and metrics.
         """
         client_circuits = {}
-        
-        # Class resolution priority:
-        # 1. Per-client override (set by runner.setup() from partition, or by user explicitly)
-        # 2. Global classes_to_analyze (user-set explicit override)
-        # 3. Safe fallback: all classes 0..num_classes-1
         if self.config.classes_to_discover_per_client and self.client_id in self.config.classes_to_discover_per_client:
             classes_to_analyze = self.config.classes_to_discover_per_client[self.client_id]
         elif self.config.classes_to_analyze is not None:
@@ -104,14 +98,11 @@ class FederatedClient:
         # Compute layer means if needed (for mean ablation)
         layer_means = None
         if self.config.use_mean_ablation:
-            # If provided (e.g. global means), use them? 
-            # Original code computes client means for client discovery.
             layer_means = compute_layer_means(model, self.dataloader, self.config)
             
         physical_connectivity = extract_sparse_connectivity(model)
 
         for tc in classes_to_analyze:
-            # Safely map class index to name, with bounds check
             if self.class_names and 0 <= tc < len(self.class_names):
                 name = self.class_names[tc]
             else:
@@ -124,8 +115,6 @@ class FederatedClient:
             func_conn = filter_connectivity_by_circuit(physical_connectivity, circ)
             
             # 3. Evaluate on Test Set
-            # Note: Evaluation uses the provided test_layer_means (usually global means or client means depending on context)
-            # Original code uses client_means for local evaluation.
             acc = evaluate_circuit(model, testloader, circ, tc, self.config, layer_means=layer_means)
             inv_acc = evaluate_circuit_necessity(model, testloader, circ, tc, self.config)
             

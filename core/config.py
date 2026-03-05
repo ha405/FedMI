@@ -57,6 +57,10 @@ class ExperimentConfig:
     use_fedrs: bool = False
     fedrs_alpha: float = 0.4
     
+    # --- Public Data (Server-Side) ---
+    public_data_fraction: float = 0.0
+    public_data_seed: int = 99
+
     # --- Resume ---
     resume: bool = False
 

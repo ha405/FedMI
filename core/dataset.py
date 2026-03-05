@@ -112,17 +112,10 @@ def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]]
     class_indices = {k: np.where(labels == k)[0] for k in range(num_classes)}
     for k in class_indices:
         np.random.shuffle(class_indices[k])
-        
-    # 2. Determine "Demand" for each class from each client
-    # We need to decide how many samples each client gets total.
-    # Assuming standard balanced partition size roughly: Total / NumClients
-    # Or, we can just distribute all class K samples according to the relative weight of Class K requested by each client.
     
     total_samples = len(dataset)
     samples_per_client = total_samples // num_clients # Approximation
     
-    # Let's use a simpler approach:
-    # For each class K, look at how much each client "wants" it (relative to other clients).
     
     for k in range(num_classes):
         # Gather weights for class k from all clients
@@ -138,13 +131,10 @@ def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]]
         total_weight = client_weights.sum()
         
         if total_weight == 0:
-            # No client wants this class, distribute evenly or skip?
-            # Distribute evenly to avoid data waste
             proportions = np.ones(num_clients) / num_clients
         else:
             proportions = client_weights / total_weight
-            
-        # Distribute class K indices
+
         idx_k = class_indices[k]
         split_points = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
         split_idx_k = np.split(idx_k, split_points)
@@ -154,14 +144,34 @@ def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]]
             
     return client_indices
 
-# --- DataLoader ---
+
+def split_public_data(dataset, fraction: float, seed: int, config) -> tuple:
+    n = len(dataset)
+    num_public = int(n * fraction)
+    if num_public == 0:
+        return list(range(n)), None
+
+    rng = np.random.RandomState(seed)
+    all_indices = rng.permutation(n).tolist()
+    public_indices = all_indices[:num_public]
+    private_indices = all_indices[num_public:]
+
+    public_subset = Subset(dataset, public_indices)
+    public_loader = DataLoader(
+        public_subset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        num_workers=config.num_workers
+    )
+    return private_indices, public_loader
+
 
 def get_dataloader(dataset, indices: List[int], config, shuffle: bool = True) -> DataLoader:
     subset = Subset(dataset, indices)
     return DataLoader(
         subset,
         batch_size=config.batch_size,
-        shuffle=shuffle, # Almost always True for training
+        shuffle=shuffle,
         num_workers=config.num_workers
     )
 
@@ -182,18 +192,7 @@ def get_client_class_counts(dataloader, num_classes):
     return counts
 
 def get_classes_for_client(dataset, indices: List[int]) -> List[int]:
-    """
-    Returns the sorted list of unique class labels that appear in a client's
-    data partition. Used to auto-populate classes_to_discover_per_client
-    when the user has not set it explicitly in config.
 
-    Args:
-        dataset: The full training dataset (must support integer indexing and return (sample, label)).
-        indices:  The subset of dataset indices belonging to this client.
-
-    Returns:
-        Sorted list of unique integer class labels present in the partition.
-    """
     labels = get_labels(dataset)
     client_labels = labels[np.array(indices, dtype=int)]
     return sorted(int(c) for c in np.unique(client_labels))

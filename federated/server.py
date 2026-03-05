@@ -23,7 +23,6 @@ class FederatedServer:
         target_device = next(self.global_model.parameters()).device
         
         for key in global_state.keys():
-            # Initialize accumulator
             global_state[key] = torch.zeros_like(global_state[key], dtype=torch.float32).to(target_device)
             
             for i, client_model in enumerate(client_models):
@@ -39,13 +38,10 @@ class FederatedServer:
             "clients_local_model": {}, 
             "clients_global_model": {}
         }
-        
-        # --- 1. LOCAL TRAINING & DISCOVERY ---
         for i, client in enumerate(clients):
             print(f"  Client {i}: Local Training...")
             
             # Send copy of global model to client
-            # In simulation, we just copy the model object per client
             c_model_copy = copy.deepcopy(self.global_model)
             
             # Train
@@ -57,33 +53,20 @@ class FederatedServer:
             print(f"  Client {i}: Discovering Circuits...")
             c_circuits = client.discover_circuits(trained_model, self.testloader)
             round_circuits["clients_local_model"][f"client_{i}"] = c_circuits
-            
-        # --- 2. AGGREGATION ---
+
         self.aggregate(client_models)
-        
-        # --- 3. GLOBAL DISCOVERY & CROSS-EVALUATION ---
+
         print(f"  Global Model: Running per-client circuit discovery & evaluation...")
-        
-        # We need to discover circuits on the Global Model using Client Data
-        # This mirrors the logic in the original run_federated_round
         
         global_phys_conn = extract_sparse_connectivity(self.global_model)
         
         for i, client in enumerate(clients):
-            # Prepare Global Model copy for this client context
             gm_copy = copy.deepcopy(self.global_model)
-            
-            # Compute global means on THIS client's data if needed
             global_means = None
             if self.config.use_mean_ablation:
                 global_means = compute_layer_means(gm_copy, client.dataloader, self.config)
                 
             cg_circs = {}
-            
-            # Class resolution priority (mirrors client.discover_circuits):
-            # 1. Per-client override (populated by runner.setup() or user)
-            # 2. Global classes_to_analyze (user-set explicit override)
-            # 3. Safe fallback: all classes 0..num_classes-1
             if self.config.classes_to_discover_per_client and i in self.config.classes_to_discover_per_client:
                 classes_for_this_client = self.config.classes_to_discover_per_client[i]
             elif self.config.classes_to_analyze is not None:
@@ -93,21 +76,14 @@ class FederatedServer:
 
 
             for tc in classes_for_this_client:
-                # Safely map class index to name, with bounds check
                 if self.class_names and 0 <= tc < len(self.class_names):
                     name = self.class_names[tc]
                 else:
                     name = str(tc)
-                
-                # A. Discovery on Global Model using Client Data
                 circ_global = discover_client_circuit(gm_copy, client.dataloader, tc, self.config, layer_means=global_means)
                 func_conn = filter_connectivity_by_circuit(global_phys_conn, circ_global)
-                
-                # B. Evaluate Global Circuit
                 acc_global = evaluate_circuit(gm_copy, self.testloader, circ_global, tc, self.config, layer_means=global_means)
                 inv_acc = evaluate_circuit_necessity(gm_copy, self.testloader, circ_global, tc, self.config)
-                
-                # C. Cross-Evaluation: Local Mask on Global Weights
                 acc_cross = 0.0
                 try:
                     local_circ_nodes = round_circuits["clients_local_model"][f"client_{i}"][name]["active_nodes"]

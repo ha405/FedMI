@@ -105,9 +105,6 @@ def evaluate_circuit_necessity(model, testloader, circuit, target_class, config)
     device = config.device
     hooks = []
     
-    # Need to be careful: If circuit indices are empty, inverse mask should be all 1s (No pruning).
-    # The hook already handles empty indices correctly.
-    
     for layer_name, indices in circuit.items():
         module = model.get_submodule(layer_name)
         idx_tensor = torch.tensor(indices, dtype=torch.long, device=device)
@@ -190,7 +187,6 @@ def extract_sparse_connectivity(model):
             w_spatial_sum = w.abs().sum(dim=(2, 3))
             # Returns indices [[row, col], ...] -> [[dest, src], ...]
             connected_indices = torch.nonzero(w_spatial_sum > 0, as_tuple=False)
-            
             connectivity[name] = connected_indices.tolist()
         elif isinstance(module, nn.Linear):
             w = module.weight.detach().cpu()

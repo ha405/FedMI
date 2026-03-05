@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from playground.experiments import REGISTRY
-from playground.experiments import apply, stitch
+from playground.experiments import apply, stitch, ensemble_distill, lth_prune
 
 
 def build_parser():
@@ -17,6 +17,8 @@ def build_parser():
     sub = parser.add_subparsers(dest="command", required=True)
     apply.add_args(sub)
     stitch.add_args(sub)
+    ensemble_distill.add_args(sub)
+    lth_prune.add_args(sub)
     return parser
 
 
@@ -24,3 +26,4 @@ if __name__ == "__main__":
     args = build_parser().parse_args()
     experiment = REGISTRY[args.command](args)
     experiment.run()
+

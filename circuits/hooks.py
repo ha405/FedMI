@@ -15,11 +15,7 @@ def get_gate_mean_hook(gate_param, mean_tensor):
     Used during Circuit Discovery training.
     """
     def hook(module, input, output):
-        # 1. Get the binary mask (via STE)
         mask = binary_gate(gate_param)
-        
-        # 2. Apply Mean Ablation Logic during Discovery
-        # Output = (Signal * Mask) + (Mean * (1 - Mask))
         return (output * mask) + (mean_tensor * (1.0 - mask))
     return hook
 
@@ -38,10 +34,8 @@ def get_inverse_mask_hook(indices, device):
     Used for Necessity testing.
     """
     def hook(module, input, output):
-        # Start with everything ON (1s)
         mask = torch.ones(1, output.shape[1], 1, 1).to(device)
         if len(indices) > 0:
-            # Turn OFF the specific circuit indices
             mask[:, indices, :, :] = 0.0
         return output * mask
     return hook
@@ -53,11 +47,8 @@ def get_mean_ablation_hook(indices, mean_tensor, device):
     If pruned: Return Mean Value.
     """
     def hook(module, input, output):
-        # 1. Create Mask (1 for Keep, 0 for Prune)
         mask = torch.zeros(1, output.shape[1], 1, 1).to(device)
         if len(indices) > 0:
             mask[:, indices, :, :] = 1.0
-            
-        # 2. Apply: (Signal * Mask) + (Mean * InverseMask)
         return (output * mask) + (mean_tensor * (1.0 - mask))
     return hook

@@ -12,10 +12,10 @@
 
     "model_name": "SimpleCNN",
     "conv_channels": [32, 64, 128],
-    "num_classes": 10,
+    "num_classes": 5,
 
-    "num_clients": 5,
-    "num_rounds": 10,
+    "num_clients": 3,
+    "num_rounds": 5,
     "local_epochs": 5,
 
     "partition_method": "iid",

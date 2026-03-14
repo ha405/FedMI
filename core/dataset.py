@@ -36,6 +36,13 @@ def get_dataset(config):
         )
     else:
         raise ValueError(f"Unknown dataset: {config.dataset_name}")
+    
+    train_labels = get_labels(trainset)
+    test_labels = get_labels(testset)
+    train_valid = np.where(train_labels < config.num_classes)[0]
+    test_valid = np.where(test_labels < config.num_classes)[0]
+    trainset = Subset(trainset, train_valid)
+    testset = Subset(testset, test_valid)
         
     return trainset, testset
 
@@ -146,16 +153,17 @@ def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]]
 
 
 def split_public_data(dataset, fraction: float, seed: int, config) -> tuple:
+    labels = get_labels(dataset)
     n = len(dataset)
-    num_public = int(n * fraction)
-    if num_public == 0:
-        return list(range(n)), None
-
+    valid_indices = np.where(labels < config.num_classes)[0]
     rng = np.random.RandomState(seed)
-    all_indices = rng.permutation(n).tolist()
-    public_indices = all_indices[:num_public]
-    private_indices = all_indices[num_public:]
-
+    rng.shuffle(valid_indices) 
+    num_valid = len(valid_indices)
+    num_public = int(num_valid * fraction)
+    if num_public == 0:
+        return valid_indices.tolist(), None
+    public_indices = valid_indices[:num_public].tolist()
+    private_indices = valid_indices[num_public:].tolist()
     public_subset = Subset(dataset, public_indices)
     public_loader = DataLoader(
         public_subset,
@@ -163,6 +171,7 @@ def split_public_data(dataset, fraction: float, seed: int, config) -> tuple:
         shuffle=True,
         num_workers=config.num_workers
     )
+    
     return private_indices, public_loader
 
 

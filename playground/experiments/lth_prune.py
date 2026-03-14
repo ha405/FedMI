@@ -30,7 +30,7 @@ def count_nonzero_params(model):
     return nonzero, total
 
 
-def global_magnitude_prune(model, prune_rate):
+def global_magnitude_prune(model, prune_rate, target_nonzero=None):
     all_weights = []
     for name, param in model.named_parameters():
         if 'weight' in name and param.dim() > 1:
@@ -43,6 +43,10 @@ def global_magnitude_prune(model, prune_rate):
 
     current_nonzero = (all_weights > 0).sum().item()
     num_to_keep = int(current_nonzero * (1.0 - prune_rate))
+    
+    if target_nonzero is not None and num_to_keep < target_nonzero:
+        num_to_keep = target_nonzero
+        
     if num_to_keep < 1:
         num_to_keep = 1
 
@@ -138,23 +142,26 @@ class LTHPruneExperiment(BaseExperiment):
         # --- Step 1: Build Ensemble (Logit Averaging) ---
         self.print_header("Building Ensemble (Logit Averaging)")
         client_models = load_client_models(args.exp_dir, round_num, cfg.num_clients, cfg)
+        
+        # Calculate the average non-zero elements across all client models to define target
+        avg_single_nonzero = sum(count_nonzero_params(m)[0] for m in client_models) // len(client_models)
+        
         model = EnsembleModel(client_models)
         model.to(device)
         model.eval()
 
         num_ensemble = len(client_models)
         nonzero_start, total_params = count_nonzero_params(model)
-        single_model_params = total_params // num_ensemble
+        
         print(f"  Ensemble size: {num_ensemble} models")
         print(f"  Total params (ensemble): {total_params:,}")
-        print(f"  Single model params: {single_model_params:,}")
+        print(f"  Average single model non-zero params: {avg_single_nonzero:,}")
         print(f"  Non-zero params (start): {nonzero_start:,}")
         print(f"  Initial sparsity: {1.0 - nonzero_start/total_params:.4f}")
 
-        # Auto-compute target: prune until ensemble has ~single_model non-zero params
-        auto_target_sparsity = 1.0 - (single_model_params / total_params)
-        target_sparsity = args.target_sparsity if args.target_sparsity is not None else auto_target_sparsity
-        print(f"  Target sparsity: {target_sparsity:.4f} (match 1/{num_ensemble} of ensemble = {single_model_params:,} params)")
+        # Target non-zero elements
+        target_nonzero = args.target_nonzero if args.target_nonzero is not None else avg_single_nonzero
+        print(f"  Target non-zero params: {target_nonzero:,} (match average non-zero of a single model)")
 
         # Baseline evaluation
         self.print_header("Baseline Ensemble Evaluation")
@@ -164,14 +171,14 @@ class LTHPruneExperiment(BaseExperiment):
             self.print_result(f"  Class {cls}:", f"{acc}%" if acc is not None else "N/A")
 
         # --- Step 2: Iterative Magnitude Pruning ---
-        self.print_header(f"Iterative Magnitude Pruning (rate={args.prune_rate}, target={target_sparsity:.4f})")
+        self.print_header(f"Iterative Magnitude Pruning (rate={args.prune_rate}, target_nonzero={target_nonzero:,})")
 
         pruning_log = []
 
         for iteration in range(1, args.prune_iters + 1):
             print(f"\n  --- Prune Iteration {iteration}/{args.prune_iters} ---")
 
-            global_magnitude_prune(model, args.prune_rate)
+            global_magnitude_prune(model, args.prune_rate, target_nonzero=target_nonzero)
 
             nonzero_now, _ = count_nonzero_params(model)
             current_sparsity = 1.0 - nonzero_now / total_params
@@ -179,7 +186,7 @@ class LTHPruneExperiment(BaseExperiment):
 
             # Evaluate after pruning (before finetune)
             pre_ft_result = eval_full(model, testloader, cfg)
-            print(f"    Pre-Finetune Acc: {pre_ft_result['overall']:.2f}%")
+            print(f"    Acc after pruning (Pre-Finetune): {pre_ft_result['overall']:.2f}%")
 
             # Finetune
             print(f"    Finetuning ({args.finetune_epochs} epochs)...")
@@ -187,7 +194,7 @@ class LTHPruneExperiment(BaseExperiment):
 
             # Evaluate after finetune
             post_ft_result = eval_full(model, testloader, cfg)
-            print(f"    Post-Finetune Acc: {post_ft_result['overall']:.2f}%")
+            print(f"    Acc after finetuning (Post-Finetune): {post_ft_result['overall']:.2f}%")
 
             pruning_log.append({
                 "iteration": iteration,
@@ -197,8 +204,8 @@ class LTHPruneExperiment(BaseExperiment):
                 "post_finetune_acc": post_ft_result["overall"]
             })
 
-            if current_sparsity >= target_sparsity:
-                print(f"\n    Target sparsity {target_sparsity} reached. Stopping.")
+            if nonzero_now <= target_nonzero:
+                print(f"\n    Target non-zero params ({target_nonzero}) reached. Stopping.")
                 break
 
         # --- Step 3: Final Evaluation ---
@@ -236,7 +243,7 @@ class LTHPruneExperiment(BaseExperiment):
                 "prune_iters": args.prune_iters,
                 "finetune_epochs": args.finetune_epochs,
                 "finetune_lr": args.finetune_lr,
-                "target_sparsity": args.target_sparsity,
+                "target_nonzero": args.target_nonzero,
                 "public_fraction": args.public_fraction,
                 "round": round_num
             }
@@ -255,8 +262,8 @@ def add_args(subparsers):
     p.add_argument("--round", type=int, default=None, help="Round to load client models from (default: last)")
     p.add_argument("--prune_rate", type=float, default=0.2, help="Fraction of remaining weights to prune per iteration")
     p.add_argument("--prune_iters", type=int, default=10, help="Maximum number of pruning iterations")
-    p.add_argument("--finetune_epochs", type=int, default=5, help="Epochs of finetuning after each prune")
+    p.add_argument("--finetune_epochs", type=int, default=0, help="Epochs of finetuning after each prune")
     p.add_argument("--finetune_lr", type=float, default=0.0005, help="Finetuning learning rate")
-    p.add_argument("--target_sparsity", type=float, default=None, help="Target sparsity (default: auto = 1 - 1/N to match single model size)")
+    p.add_argument("--target_nonzero", type=int, default=None, help="Target non-zero elements (default: auto = average non-zero of a single model)")
     p.add_argument("--public_fraction", type=float, default=0.1, help="Fraction of train set to use as public data")
     return p

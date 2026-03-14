@@ -126,32 +126,30 @@ def evaluate_circuit_necessity(model, testloader, circuit, target_class, config)
     return (100 * correct / total) if total > 0 else 0.0
 
 def evaluate_detailed(model, testloader, config, log_file=None, class_names=None, title="Model Evaluation"):
-    """
-    Evaluates model on the full test set.
-    Logs ONLY the per-class accuracy summary table to log_file.
-    """
     model.eval()
-    
     correct = 0
-    total = 0
-    
+    total = 0 
     num_classes = config.num_classes
     class_correct = list(0. for i in range(num_classes))
     class_total = list(0. for i in range(num_classes))
-    
     if log_file:
         log_file.write(f"\n--- {title} ---\n")
-    
     with torch.no_grad():
         for inputs, labels in testloader:
             inputs, labels = inputs.to(config.device), labels.to(config.device)
+            valid_mask = labels < config.num_classes
+            
+            if valid_mask.sum() == 0:
+                continue
+            inputs = inputs[valid_mask]
+            labels = labels[valid_mask]
+
             outputs = model(inputs)
             _, predicted = torch.max(outputs.data, 1)
             
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            
-            # Per-class stats
+
             c = (predicted == labels)
             for i in range(labels.size(0)):
                 label = labels[i].item()
@@ -159,24 +157,22 @@ def evaluate_detailed(model, testloader, config, log_file=None, class_names=None
                     class_correct[label] += c[i].item()
                     class_total[label] += 1
 
-    # Log Per-Class Accuracy Table
+    overall_acc = 100 * correct / total if total > 0 else 0.0
+    
     if log_file:
-        log_file.write(f"Overall Accuracy: {100 * correct / total:.2f}%\n")
+        log_file.write(f"Overall Accuracy: {overall_acc:.2f}%\n")
         log_file.write("Per-Class Accuracy:\n")
         for i in range(num_classes):
             if class_total[i] > 0:
                 acc = 100 * class_correct[i] / class_total[i]
-                if class_names and 0 <= i < len(class_names):
-                    c_name = class_names[i]
-                else:
-                    c_name = str(i)
+                c_name = class_names[i] if (class_names and 0 <= i < len(class_names)) else str(i)
                 log_file.write(f"  Class {c_name}: {acc:.2f}% ({int(class_correct[i])}/{int(class_total[i])})\n")
             else:
                 log_file.write(f"  Class {i}: N/A (No samples)\n")
         log_file.write("-" * 30 + "\n")
         log_file.flush()
 
-    return 100 * correct / total
+    return overall_acc
 
 def extract_sparse_connectivity(model):
     connectivity = {}

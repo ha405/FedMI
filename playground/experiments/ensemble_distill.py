@@ -207,7 +207,7 @@ def add_args(subparsers):
     p.add_argument("--exp_dir", required=True, help="Path to completed experiment directory")
     p.add_argument("--round", type=int, default=None, help="Round to load client models from (default: last)")
     p.add_argument("--temperature", type=float, default=4.0, help="Distillation temperature")
-    p.add_argument("--distill_epochs", type=int, default=20, help="Number of distillation epochs")
-    p.add_argument("--distill_lr", type=float, default=0.001, help="Distillation learning rate")
-    p.add_argument("--public_fraction", type=float, default=0.1, help="Fraction of train set to use as public data")
+    p.add_argument("--distill_epochs", type=int, default=50, help="Number of distillation epochs")
+    p.add_argument("--distill_lr", type=float, default=0.0001, help="Distillation learning rate")
+    p.add_argument("--public_fraction", type=float, default=0.2, help="Fraction of train set to use as public data")
     return p

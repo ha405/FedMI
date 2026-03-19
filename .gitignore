@@ -56,3 +56,9 @@ Thumbs.db
 # Logs
 # =========================
 *.log
+
+# =========================
+# Notebooks
+# =========================
+.ipynb_checkpoints/
+notebooks/outputs/

@@ -190,7 +190,7 @@ def print_info():
     print(f"  PyTorch      : {torch.__version__}")
     if torch.cuda.is_available():
         print(f"  GPU          : {torch.cuda.get_device_name(0)}")
-        mem = torch.cuda.get_device_properties(0).total_mem / (1024 ** 3)
+        mem = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
         print(f"  GPU Memory   : {mem:.1f} GB")
     else:
         print("  GPU          : ⚠ None (CPU only)")

@@ -83,18 +83,46 @@ def partition_dirichlet(dataset, num_clients: int, alpha: float, num_classes: in
     
     return client_indices
 
-def partition_by_class(dataset, client_class_map: Dict[int, List[int]]) -> List[List[int]]:
-    """Older manual partition method where clients get specific classes exclusively."""
+def partition_by_class(dataset, client_class_map) -> List[List[int]]:
+    """Older manual partition method where clients get specific classes exclusively, with optional percentage limits."""
     labels = get_labels(dataset)
     num_clients = len(client_class_map)
     client_indices = [[] for _ in range(num_clients)]
     
     for client_id, classes in client_class_map.items():
         client_idx = int(client_id)
-        for class_label in classes:
-            idx_k = np.where(labels == class_label)[0]
-            client_indices[client_idx].extend(idx_k.tolist())
-            
+        
+        # If user passed a dictionary like {"1": 100, "3": 10}
+        if isinstance(classes, dict):
+            for class_label_str, percentage in classes.items():
+                class_label = int(class_label_str)
+                idx_k = np.where(labels == class_label)[0]
+                
+                # Assume percentage means up to 100
+                frac = min(float(percentage), 100.0) / 100.0
+                num_samples = int(len(idx_k) * frac)
+                
+                # Shuffle so it's not always the exact same subset of images
+                np.random.shuffle(idx_k)
+                client_indices[client_idx].extend(idx_k[:num_samples].tolist())
+                
+        # If user passed the old list format like [0, 1]
+        elif isinstance(classes, list):
+            for item in classes:
+                # Handle edge case where user puts a dict inside the list like [1, {"3": 10}]
+                if isinstance(item, dict):
+                    for class_label_str, percentage in item.items():
+                        class_label = int(class_label_str)
+                        idx_k = np.where(labels == class_label)[0]
+                        frac = min(float(percentage), 100.0) / 100.0
+                        num_samples = int(len(idx_k) * frac)
+                        np.random.shuffle(idx_k)
+                        client_indices[client_idx].extend(idx_k[:num_samples].tolist())
+                else:    
+                    class_label = int(item)
+                    idx_k = np.where(labels == class_label)[0]
+                    client_indices[client_idx].extend(idx_k.tolist())
+                    
     return client_indices
 
 def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]], num_clients: int, num_classes: int) -> List[List[int]]:
@@ -150,6 +178,45 @@ def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]]
         for i in range(num_clients):
             client_indices[i].extend(split_idx_k[i].tolist())
             
+    return client_indices
+
+
+def partition_exact_amounts(dataset, exact_profile: Dict[int, Dict[int, int]], num_clients: int, num_classes: int) -> List[List[int]]:
+    """
+    Partition data based on exact requested sample counts per class per client.
+    
+    Args:
+        exact_profile: {client_id: {class_id: exact_sample_count, ...}}
+    """
+    labels = get_labels(dataset)
+    client_indices = [[] for _ in range(num_clients)]
+    
+    # Organize all indices by class
+    class_indices = {k: np.where(labels == k)[0] for k in range(num_classes)}
+    for k in class_indices:
+        np.random.shuffle(class_indices[k])
+        
+    class_pointers = {k: 0 for k in range(num_classes)}
+    
+    # Process requests
+    for c_id_str, class_requests in exact_profile.items():
+        c_id = int(c_id_str)
+        if c_id >= num_clients: continue
+        
+        for k_str, count in class_requests.items():
+            k = int(k_str)
+            if k >= num_classes: continue
+            
+            # Get requested number of samples or whatever is left
+            start_idx = class_pointers[k]
+            end_idx = min(start_idx + count, len(class_indices[k]))
+            
+            client_indices[c_id].extend(class_indices[k][start_idx:end_idx].tolist())
+            class_pointers[k] = end_idx
+            
+            if end_idx - start_idx < count:
+                print(f"[Warning] Client {c_id} requested {count} samples of class {k}, but only {end_idx - start_idx} were available.")
+                
     return client_indices
 
 

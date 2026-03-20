@@ -34,6 +34,8 @@ class ExperimentConfig:
     skew_profile: Optional[Dict[int, Dict[int, float]]] = None
     # For "manual" (aka "by_class" in original code): {client_id: [class_list]}
     manual_allocation: Optional[Dict[int, List[int]]] = None
+    # For "exact_amounts": {client_id: {class_id: exact_sample_count}}
+    exact_allocation: Optional[Dict[int, Dict[int, int]]] = None
 
     # --- Training ---
     train_mode: str = "sparse"  # "sparse", "dense"

@@ -82,6 +82,11 @@ class ExperimentRunner:
             if not self.config.skew_profile:
                 raise ValueError("Skew profile required for 'systematic_skew' partition method.")
             client_indices = partition_systematic_skew(trainset, self.config.skew_profile, self.config.num_clients, self.config.num_classes)
+        elif self.config.partition_method == "exact_amounts":
+            from core.dataset import partition_exact_amounts
+            if not self.config.exact_allocation:
+                raise ValueError("exact_allocation map required for 'exact_amounts' partition method.")
+            client_indices = partition_exact_amounts(trainset, self.config.exact_allocation, self.config.num_clients, self.config.num_classes)
         else:
             raise ValueError(f"Unknown partition method: {self.config.partition_method}")
             

@@ -93,10 +93,14 @@ class ExperimentRunner:
         # Generate class distribution visualizations (especially useful for non-IID partitions)
         if self.config.partition_method in ["dirichlet", "systematic_skew", "manual"]:
             try:
+                from core.dataset import get_labels
+                labels = get_labels(trainset)
+                
                 visualizer = ClassDistributionVisualizer(self.config.output_dir, 
                                                         partition_method=self.config.partition_method)
                 visualizer.run(dataset_name=self.config.dataset_name, 
-                              class_names=list(self.class_names))
+                              class_names=list(self.class_names),
+                              labels=labels)
             except Exception as e:
                 print(f"Warning: Failed to generate class distribution plots: {e}")
                 import traceback

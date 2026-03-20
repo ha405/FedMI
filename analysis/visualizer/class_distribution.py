@@ -43,7 +43,7 @@ class ClassDistributionVisualizer(BaseVisualizer):
             print(f"[ClassDistributionVisualizer] Error loading config: {e}")
             return None
     
-    def get_dataset_labels(self, dataset_name: str = "MNIST") -> np.ndarray:
+    def get_dataset_labels(self, dataset_name: str = "MNIST", data_root: str = "./data") -> np.ndarray:
         """
         Load dataset labels from the original dataset.
         Supports MNIST and CIFAR10.
@@ -55,11 +55,11 @@ class ClassDistributionVisualizer(BaseVisualizer):
         
         if dataset_name == "MNIST":
             trainset = torchvision.datasets.MNIST(
-                root="./data", train=True, download=True, transform=transform
+                root=data_root, train=True, download=True, transform=transform
             )
         elif dataset_name == "CIFAR10":
             trainset = torchvision.datasets.CIFAR10(
-                root="./data", train=True, download=True, transform=transform
+                root=data_root, train=True, download=True, transform=transform
             )
         else:
             raise ValueError(f"Unknown dataset: {dataset_name}")
@@ -105,13 +105,14 @@ class ClassDistributionVisualizer(BaseVisualizer):
         plt.tight_layout()
         return fig
     
-    def run(self, dataset_name: str = "MNIST", class_names: List[str] = None):
+    def run(self, dataset_name: str = "MNIST", class_names: List[str] = None, labels: np.ndarray = None):
         """
         Generate class distribution histogram.
         
         Args:
             dataset_name: Name of the dataset (MNIST, CIFAR10)
             class_names: List of class names for labeling
+            labels: Optional pre-loaded labels corresponding to partitioning indices
         """
         print(f"[ClassDistributionVisualizer] Generating class distribution histogram...")
         
@@ -132,19 +133,33 @@ class ClassDistributionVisualizer(BaseVisualizer):
         if class_names is None:
             class_names = [str(i) for i in range(num_classes)]
         
-        # Load labels
-        try:
-            labels = self.get_dataset_labels(dataset_name)
-        except Exception as e:
-            print(f"[ClassDistributionVisualizer] Error loading dataset labels: {e}")
-            return False
+        # Load labels if not provided
+        if labels is None:
+            try:
+                data_root = config.get("data_root", "./data")
+                labels = self.get_dataset_labels(dataset_name, data_root=data_root)
+                
+                # If the experiment has a specified number of classes, we should only 
+                # keep those labels if the partitioner also did so.
+                # However, this re-loading logic is brittle. Prefer passing labels from runner.
+                if len(labels) > 0 and num_classes < 10: # assuming 10 is max default
+                     print(f"[ClassDistributionVisualizer] Warning: Re-loading labels is unpredictable with Subsets. "
+                           f"Pass labels directly for accuracy.")
+            except Exception as e:
+                print(f"[ClassDistributionVisualizer] Error loading dataset labels: {e}")
+                return False
         
         # Calculate class distributions per client
         class_distributions = {}
         for client_id, indices in enumerate(partitions):
             counts = np.zeros(num_classes, dtype=int)
             for idx in indices:
-                counts[labels[idx]] += 1
+                label = labels[idx]
+                if 0 <= label < num_classes:
+                    counts[label] += 1
+                else:
+                    # Ignore labels out of bounds (or they could be logged)
+                    pass
             class_distributions[client_id] = counts
         
         # Generate histogram

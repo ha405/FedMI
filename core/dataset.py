@@ -90,9 +90,10 @@ def partition_by_class(dataset, client_class_map: Dict[int, List[int]]) -> List[
     client_indices = [[] for _ in range(num_clients)]
     
     for client_id, classes in client_class_map.items():
+        client_idx = int(client_id)
         for class_label in classes:
             idx_k = np.where(labels == class_label)[0]
-            client_indices[client_id].extend(idx_k.tolist())
+            client_indices[client_idx].extend(idx_k.tolist())
             
     return client_indices
 

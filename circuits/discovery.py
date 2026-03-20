@@ -7,20 +7,30 @@ from .hooks import get_gate_hook, get_gate_mean_hook
 def discover_client_circuit(model, dataloader, target_class, config, layer_means=None):
     device = config.device
     
-    # Check if target class exists in this dataloader
-    # This check is expensive if dataloader is large? 
-    # Original code iterated it.
-    # To be safe and efficient, we just try to find one batch with the target.
-    found_batch = False
-    for _, labels in dataloader:
-        if target_class in labels:
-            found_batch = True
-            break
+    # 1. Pre-collect target class samples (Optimization for non-IID/sparse data)
+    # This prevents scanning the entire dataloader in every discovery step.
+    # We collect up to a reasonable buffer (e.g., 1024 samples) which is plenty for discovery.
+    target_samples = []
+    target_labels = []
+    max_buf = 1024
     
-    layers_to_discover = [name for name, module in model.named_modules() if isinstance(module, nn.Conv2d)]
+    for b_inputs, b_labels in dataloader:
+        mask = (b_labels == target_class)
+        if mask.any():
+            target_samples.append(b_inputs[mask])
+            target_labels.append(b_labels[mask])
+            
+            # Check buffer size
+            if sum(x.shape[0] for x in target_samples) >= max_buf:
+                break
+                
+    if not target_samples:
+        return {name: [] for name in [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]}
 
-    if not found_batch:
-        return {name: [] for name in layers_to_discover}
+    # Combine into a single batch for easier sampling
+    all_inputs = torch.cat(target_samples, dim=0).to(device)
+    all_labels = torch.cat(target_labels, dim=0).to(device)
+    num_avail = all_inputs.shape[0]
 
     criterion = nn.CrossEntropyLoss()
     original_grads = {name: param.requires_grad for name, param in model.named_parameters()}
@@ -40,29 +50,23 @@ def discover_client_circuit(model, dataloader, target_class, config, layer_means
 
     optimizer = optim.Adam(gate_params.values(), lr=config.gate_lr)
     
+    # Discovery Loop: Now significantly faster as we sample from pre-collected buffer
     for _ in range(config.discovery_steps):
-        data_iter = iter(dataloader)
-        found_batch = False
-        inputs, labels = None, None
+        # Sample a batch from our collected samples
+        # If we have fewer than batch_size, take all. Otherwise, take a random subset.
+        if num_avail <= config.batch_size:
+            idx = torch.arange(num_avail, device=device)
+        else:
+            idx = torch.randperm(num_avail, device=device)[:config.batch_size]
         
-        # Find a batch with the target class
-        for b_inputs, b_labels in data_iter:
-            if target_class in b_labels:
-                inputs, labels = b_inputs.to(device), b_labels.to(device)
-                found_batch = True
-                break
-                
-        if not found_batch: continue 
-
-        mask = (labels == target_class)
-        if mask.sum() == 0: continue
+        inputs = all_inputs[idx]
+        labels = all_labels[idx]
         
         optimizer.zero_grad()
         l0_loss = sum(torch.sigmoid(p).sum() for p in gate_params.values())
-        logits = model(inputs[mask])
+        logits = model(inputs)
         
-        # Loss calculation
-        cls_loss = criterion(logits, labels[mask])
+        cls_loss = criterion(logits, labels)
         loss = cls_loss + (config.l0_lambda * l0_loss)
         
         loss.backward()

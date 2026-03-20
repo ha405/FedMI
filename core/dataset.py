@@ -50,6 +50,7 @@ def get_labels(dataset):
     if hasattr(dataset, 'targets'):
         return np.array(dataset.targets)
     else:
+        # Fallback for Subsets or unknown datasets
         return np.array([y for _, y in dataset])
 
 # --- Partitioning Logic ---
@@ -123,6 +124,12 @@ def partition_by_class(dataset, client_class_map) -> List[List[int]]:
                     idx_k = np.where(labels == class_label)[0]
                     client_indices[client_idx].extend(idx_k.tolist())
                     
+        # If user passed a single int or string like "1" or 1
+        elif isinstance(classes, (str, int)):
+            class_label = int(classes)
+            idx_k = np.where(labels == class_label)[0]
+            client_indices[client_idx].extend(idx_k.tolist())
+            
     return client_indices
 
 def partition_systematic_skew(dataset, skew_profile: Dict[int, Dict[int, float]], num_clients: int, num_classes: int) -> List[List[int]]:

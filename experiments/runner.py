@@ -161,12 +161,20 @@ class ExperimentRunner:
                 round_circuits = self.server.orchestrate_round(round_num, self.clients, log_file=log_f)
                 all_circuits[f"round_{round_num + 1}"] = round_circuits
                 
+                # Extract active classes across all clients, falling back to None if not determined
+                active_classes = None
+                if self.config.classes_to_discover_per_client:
+                    active_classes = set()
+                    for cls_list in self.config.classes_to_discover_per_client.values():
+                        active_classes.update(cls_list)
+                
                 # Full Eval
                 acc = evaluate_detailed(
                     self.global_model, self.testloader, self.config, 
                     log_file=log_f, 
                     class_names=self.class_names, 
-                    title=f"Round {round_num + 1} Global Full Model Evaluation"
+                    title=f"Round {round_num + 1} Global Full Model Evaluation",
+                    active_classes=active_classes
                 )
                 print(f"  Round {round_num + 1} Global Full Model Acc: {acc:.2f}%")
                 

@@ -125,22 +125,35 @@ def evaluate_circuit_necessity(model, testloader, circuit, target_class, config)
     for h in hooks: h.remove()
     return (100 * correct / total) if total > 0 else 0.0
 
-def evaluate_detailed(model, testloader, config, log_file=None, class_names=None, title="Model Evaluation"):
+def evaluate_detailed(model, testloader, config, log_file=None, class_names=None, title="Model Evaluation", active_classes=None):
     model.eval()
     correct = 0
     total = 0 
     num_classes = config.num_classes
     class_correct = list(0. for i in range(num_classes))
     class_total = list(0. for i in range(num_classes))
+    
     if log_file:
         log_file.write(f"\n--- {title} ---\n")
+        
     with torch.no_grad():
         for inputs, labels in testloader:
             inputs, labels = inputs.to(config.device), labels.to(config.device)
+            
+            # First, keep only labels < config.num_classes
             valid_mask = labels < config.num_classes
+            
+            # Second, if active_classes is provided, only keep those classes
+            if active_classes is not None:
+                # Create a mask for classes that are in active_classes
+                active_mask = torch.zeros_like(valid_mask, dtype=torch.bool)
+                for c in active_classes:
+                    active_mask |= (labels == c)
+                valid_mask &= active_mask
             
             if valid_mask.sum() == 0:
                 continue
+                
             inputs = inputs[valid_mask]
             labels = labels[valid_mask]
 
@@ -162,7 +175,11 @@ def evaluate_detailed(model, testloader, config, log_file=None, class_names=None
     if log_file:
         log_file.write(f"Overall Accuracy: {overall_acc:.2f}%\n")
         log_file.write("Per-Class Accuracy:\n")
-        for i in range(num_classes):
+        
+        # Only iterate over active_classes if defined, else all num_classes
+        eval_classes = sorted(list(active_classes)) if active_classes is not None else range(num_classes)
+        
+        for i in eval_classes:
             if class_total[i] > 0:
                 acc = 100 * class_correct[i] / class_total[i]
                 c_name = class_names[i] if (class_names and 0 <= i < len(class_names)) else str(i)

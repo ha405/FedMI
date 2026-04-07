@@ -56,6 +56,27 @@ class ExperimentRunner:
              json.dump(self.config.__dict__, f, indent=4, default=str)
         
         # 2. Data
+        # Auto-derive num_classes from manual_allocation so the model head,
+        # dataset filter (labels < num_classes), and accuracy all stay consistent.
+        if self.config.partition_method == "manual" and self.config.manual_allocation:
+            used_classes = set()
+            for classes in self.config.manual_allocation.values():
+                if isinstance(classes, dict):
+                    used_classes.update(int(k) for k in classes.keys())
+                elif isinstance(classes, list):
+                    for item in classes:
+                        if isinstance(item, dict):
+                            used_classes.update(int(k) for k in item.keys())
+                        else:
+                            used_classes.add(int(item))
+                else:
+                    used_classes.add(int(classes))
+            derived_nc = max(used_classes) + 1
+            if derived_nc != self.config.num_classes:
+                print(f"[Runner] manual_allocation uses classes {sorted(used_classes)}. "
+                      f"Auto-setting num_classes: {self.config.num_classes} → {derived_nc}")
+                self.config.num_classes = derived_nc
+
         print(f"Loading dataset: {self.config.dataset_name}")
         trainset, testset = get_dataset(self.config)
         self.testloader = get_test_dataloader(testset, self.config)

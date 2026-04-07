@@ -87,7 +87,9 @@ def partition_dirichlet(dataset, num_clients: int, alpha: float, num_classes: in
 def partition_by_class(dataset, client_class_map) -> List[List[int]]:
     """Older manual partition method where clients get specific classes exclusively, with optional percentage limits."""
     labels = get_labels(dataset)
-    num_clients = len(client_class_map)
+    if not client_class_map:
+        return []
+    num_clients = max(int(k) for k in client_class_map.keys()) + 1
     client_indices = [[] for _ in range(num_clients)]
     
     for client_id, classes in client_class_map.items():

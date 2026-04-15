@@ -193,7 +193,10 @@ def evaluate_detailed(model, testloader, config, log_file=None, class_names=None
 
 def extract_sparse_connectivity(model):
     connectivity = {}
+    from .discovery import is_valid_layer
     for name, module in model.named_modules():
+        if not is_valid_layer(name, module):
+            continue
         if isinstance(module, nn.Conv2d):
             w = module.weight.detach().cpu()
             # Sum over spatial dims (2,3) to get [Out, In] magnitude

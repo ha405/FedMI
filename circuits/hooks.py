@@ -19,12 +19,24 @@ def get_gate_mean_hook(gate_param, mean_tensor):
         return (output * mask) + (mean_tensor * (1.0 - mask))
     return hook
 
+def apply_mask(output, indices, device, mask_value=1.0, default_value=0.0):
+    mask = torch.full_like(output, default_value, device=device)
+    if len(indices) > 0:
+        if len(output.shape) == 4: # Conv2d
+            mask[:, indices, :, :] = mask_value
+        elif len(output.shape) == 3: # Linear (Sequence e.g. ViT)
+            mask[:, :, indices] = mask_value
+        elif len(output.shape) == 2: # Linear (Standard)
+            mask[:, indices] = mask_value
+        else:
+            # Fallback
+            mask[..., indices] = mask_value
+    return mask
+
 def get_hard_mask_hook(indices, device):
     """Zero Ablation Hook: Keeps ONLY the indices."""
     def hook(module, input, output):
-        mask = torch.zeros(1, output.shape[1], 1, 1).to(device)
-        if len(indices) > 0:
-            mask[:, indices, :, :] = 1.0
+        mask = apply_mask(output, indices, device, mask_value=1.0, default_value=0.0)
         return output * mask
     return hook
 
@@ -34,9 +46,7 @@ def get_inverse_mask_hook(indices, device):
     Used for Necessity testing.
     """
     def hook(module, input, output):
-        mask = torch.ones(1, output.shape[1], 1, 1).to(device)
-        if len(indices) > 0:
-            mask[:, indices, :, :] = 0.0
+        mask = apply_mask(output, indices, device, mask_value=0.0, default_value=1.0)
         return output * mask
     return hook
 
@@ -47,8 +57,6 @@ def get_mean_ablation_hook(indices, mean_tensor, device):
     If pruned: Return Mean Value.
     """
     def hook(module, input, output):
-        mask = torch.zeros(1, output.shape[1], 1, 1).to(device)
-        if len(indices) > 0:
-            mask[:, indices, :, :] = 1.0
+        mask = apply_mask(output, indices, device, mask_value=1.0, default_value=0.0)
         return (output * mask) + (mean_tensor * (1.0 - mask))
     return hook

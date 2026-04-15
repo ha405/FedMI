@@ -145,6 +145,9 @@ class ExperimentRunner:
         # 4. Clients
         self.clients = []
         for i, indices in enumerate(client_indices):
+            if len(indices) == 0:
+                print(f"[Warning] Client {i} was allocated 0 samples, skipping...")
+                continue
             dl = get_dataloader(trainset, indices, self.config)
             self.clients.append(FederatedClient(i, dl, self.config, self.class_names))
             

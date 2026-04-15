@@ -4,6 +4,16 @@ import torch.optim as optim
 import numpy as np
 from .hooks import get_gate_hook, get_gate_mean_hook
 
+def is_valid_layer(name, module):
+    if not isinstance(module, (nn.Conv2d, nn.Linear)):
+        return False
+    # Exclude typical useless layers and classification heads
+    exclude_terms = ['patch_embed', 'head', 'classifier', 'embed']
+    if any(term in name for term in exclude_terms):
+        return False
+    if name == 'fc': # typical resnet head
+        return False
+    return True
 def discover_client_circuit(model, dataloader, target_class, config, layer_means=None):
     device = config.device
     
@@ -25,7 +35,7 @@ def discover_client_circuit(model, dataloader, target_class, config, layer_means
                 break
                 
     if not target_samples:
-        return {name: [] for name in [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]}
+        return {name: [] for name in [n for n, m in model.named_modules() if is_valid_layer(n, m)]}
 
     # Combine into a single batch for easier sampling
     all_inputs = torch.cat(target_samples, dim=0).to(device)
@@ -39,9 +49,12 @@ def discover_client_circuit(model, dataloader, target_class, config, layer_means
     
     gate_params, hooks, layers = {}, [], []
     for name, module in model.named_modules():
-        if isinstance(module, nn.Conv2d):
+        if is_valid_layer(name, module):
             layers.append(name)
-            gate_params[name] = nn.Parameter(torch.ones(1, module.out_channels, 1, 1).to(device) * 2.0)
+            if isinstance(module, nn.Conv2d):
+                gate_params[name] = nn.Parameter(torch.ones(1, module.out_channels, 1, 1).to(device) * 2.0)
+            else: # Linear
+                gate_params[name] = nn.Parameter(torch.ones(module.out_features).to(device) * 2.0)
             
             if config.use_mean_ablation and layer_means and name in layer_means:
                 hooks.append(module.register_forward_hook(get_gate_mean_hook(gate_params[name], layer_means[name])))
@@ -92,25 +105,32 @@ def compute_layer_means(model, dataloader, config):
     layer_sums = {} 
     layer_counts = {}
     
-    def get_activation_hook(name):
-        def hook(model, input, output):
-            # output shape: [Batch, Channel, Height, Width]
-            if name not in layer_sums:
-                layer_sums[name] = torch.zeros(output.shape[1], device=device)
-                layer_counts[name] = 0
-            
-            # Sum over Batch(0), Height(2), Width(3) -> Keep Channel(1)
-            batch_sum = output.sum(dim=(0, 2, 3)) 
-            layer_sums[name] += batch_sum
-            
-            # Count total pixels seen
-            layer_counts[name] += output.shape[0] * output.shape[2] * output.shape[3]
+    def get_activation_hook(name, module):
+        def hook(mod, input, output):
+            if isinstance(module, nn.Conv2d):
+                if name not in layer_sums:
+                    layer_sums[name] = torch.zeros(output.shape[1], device=device)
+                    layer_counts[name] = 0
+                layer_sums[name] += output.sum(dim=(0, 2, 3))
+                layer_counts[name] += output.shape[0] * output.shape[2] * output.shape[3]
+            else: # Linear
+                if name not in layer_sums:
+                    layer_sums[name] = torch.zeros(output.shape[-1], device=device)
+                    layer_counts[name] = 0
+                if len(output.shape) == 3: # ViT [B, Seq, C]
+                    layer_sums[name] += output.sum(dim=(0, 1))
+                    layer_counts[name] += output.shape[0] * output.shape[1]
+                else: # [B, C]
+                    layer_sums[name] += output.sum(dim=0)
+                    layer_counts[name] += output.shape[0]
         return hook
 
     hooks = []
+    layer_types = {}
     for name, module in model.named_modules():
-        if isinstance(module, nn.Conv2d):
-            hooks.append(module.register_forward_hook(get_activation_hook(name)))
+        if is_valid_layer(name, module):
+            layer_types[name] = type(module)
+            hooks.append(module.register_forward_hook(get_activation_hook(name, module)))
             
     # Run pass
     with torch.no_grad():
@@ -124,8 +144,9 @@ def compute_layer_means(model, dataloader, config):
     layer_means = {}
     for name in layer_sums:
         if layer_counts[name] > 0:
-            # Reshape to [1, C, 1, 1] for broadcasting
-            mean_val = (layer_sums[name] / layer_counts[name]).view(1, -1, 1, 1)
+            mean_val = layer_sums[name] / layer_counts[name]
+            if issubclass(layer_types[name], nn.Conv2d):
+                mean_val = mean_val.view(1, -1, 1, 1)
             layer_means[name] = mean_val
         
     return layer_means

@@ -9,8 +9,9 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.config import ExperimentConfig
-from core.dataset import get_dataset, get_test_dataloader, get_dataloader, partition_iid
+from core.dataset import get_dataset, get_test_dataloader
 from core.models import get_model
+from torch.utils.data import DataLoader
 from circuits.discovery import discover_client_circuit, compute_layer_means
 from circuits.evaluation import extract_sparse_connectivity, filter_connectivity_by_circuit, evaluate_circuit, evaluate_circuit_necessity
 from core.utils import save_circuits_to_json
@@ -38,8 +39,6 @@ def main():
     config.device = args.device
     config.l0_lambda = args.l0_lambda
     config.discovery_steps = args.discovery_steps
-    config.partition_method = "iid"
-    config.num_clients = 1 
     
     # Resolve output directory exactly in playground/
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -52,9 +51,8 @@ def main():
     trainset, testset = get_dataset(config)
     global_testloader = get_test_dataloader(testset, config)
     
-    # Partition the entirety of trainset simply to one "client" partition naturally
-    client_indices = partition_iid(trainset, config.num_clients)
-    dataloader = get_dataloader(trainset, client_indices[0], config)
+    # Standalone mode: we use the entire dataset directly without federated partitioning
+    dataloader = DataLoader(trainset, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers)
     
     # Try getting class names via valid native dataset logic
     configured_nc = getattr(config, 'num_classes', 10)

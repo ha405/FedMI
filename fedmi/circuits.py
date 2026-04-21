@@ -1,4 +1,4 @@
-"""Re-export: Circuits — discovery, evaluation, hooks, pruning."""
+"""Re-export: Circuits — discovery, evaluation, hooks, CKA."""
 
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -13,7 +13,6 @@ from circuits.hooks import (
     get_inverse_mask_hook,
     get_mean_ablation_hook,
 )
-from circuits.pruning import get_current_sparsity, apply_weight_sparsity
 from circuits.cka import linear_cka, extract_circuit_activations, extract_prehead_latents, cka_matrix
 
 __all__ = [
@@ -28,8 +27,6 @@ __all__ = [
     "get_hard_mask_hook",
     "get_inverse_mask_hook",
     "get_mean_ablation_hook",
-    "get_current_sparsity",
-    "apply_weight_sparsity",
     "linear_cka",
     "extract_circuit_activations",
     "extract_prehead_latents",

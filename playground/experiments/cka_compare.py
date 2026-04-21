@@ -34,10 +34,28 @@ class CKACompareExperiment(BaseExperiment):
         # --- Helper to load models ---
         from core.models import get_model
         def _load_direct_model(ckpt_path, cfg):
-            model = get_model(cfg)
             checkpoint = torch.load(ckpt_path, map_location=cfg.device)
-            # Handle if the checkpoint is just state_dict or nested under 'model_state_dict'
             state_dict = checkpoint.get('model_state_dict', checkpoint)
+            
+            # Detect architecture mismatch
+            is_resnet_ckpt = any("block" in k or "bn1" in k for k in state_dict.keys())
+            current_model_name = getattr(cfg, 'model_name', 'SimpleCNN').lower()
+            
+            if is_resnet_ckpt and current_model_name != "resnet":
+                print(f"[loader] Model mismatch! Checkpoint appears to be ResNet, but config says {current_model_name}. Overriding config.")
+                cfg.model_name = "ResNet"
+            
+            model = get_model(cfg)
+            
+            # Check if num_classes matches FC weight
+            if "fc.weight" in state_dict:
+                ckpt_classes = state_dict["fc.weight"].shape[0]
+                if ckpt_classes != cfg.num_classes:
+                    print(f"[loader] Class count mismatch! Checkpoint has {ckpt_classes} but config has {cfg.num_classes}. Patching config.")
+                    cfg.num_classes = ckpt_classes
+                    # Re-get the model with the correct class count
+                    model = get_model(cfg)
+
             model.load_state_dict(state_dict)
             model.to(cfg.device)
             return model

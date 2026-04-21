@@ -37,7 +37,8 @@ def get_model(config) -> nn.Module:
     else:
         in_channels = 3
 
-    if getattr(config, 'model_name', 'SimpleCNN') == "ResNet":
+    model_name = getattr(config, 'model_name', 'SimpleCNN').lower()
+    if model_name == "resnet":
         return ResNet(
             num_classes=config.num_classes,
             input_channels=in_channels

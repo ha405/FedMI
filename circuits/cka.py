@@ -47,17 +47,11 @@ def _get_target_layer_name(model):
     return valid_names[-2] if len(valid_names) > 1 else valid_names[0]
 
 def extract_circuit_activations(model, dataloader, circuit, config, layer_name=None, max_samples=1000):
-    """
-    Run inputs through model WITH circuit mask, and get activations at a target layer.
-    Returns: torch.Tensor [N, D]
-    """
     device = config.device
     hooks = []
     
     if layer_name is None:
         layer_name = _get_target_layer_name(model)
-        
-    # Apply circuit mask
     for circuit_layer_name, indices in circuit.items():
         try:
             module = model.get_submodule(circuit_layer_name)
@@ -95,10 +89,6 @@ def extract_circuit_activations(model, dataloader, circuit, config, layer_name=N
     return out[:max_samples]
 
 def extract_prehead_latents(model, dataloader, config, max_samples=1000):
-    """
-    Run inputs through FULL model (no masking), get activations just before the classification head.
-    Returns: torch.Tensor [N, D]
-    """
     device = config.device
     layer_name = _get_target_layer_name(model)
     
@@ -129,10 +119,6 @@ def extract_prehead_latents(model, dataloader, config, max_samples=1000):
     return out[:max_samples]
 
 def cka_matrix(activations_a, activations_b, class_labels):
-    """
-    Given two dicts of {class_label: activation_tensor}, compute CKA for each matching class.
-    Returns: dict {class_label: cka_score}
-    """
     scores = {}
     for label in class_labels:
         if str(label) in activations_a and str(label) in activations_b:

@@ -16,31 +16,53 @@ class CKACompareExperiment(BaseExperiment):
         args = self.args
         
         # --- Side A Loading ---
-        cfg_a = self._prepare_config(args.cfg_a, args.model_a, args.classes_a, args.dataset_a)
-        model_a = self._load_model(cfg_a, args.ckpt_a)
-        circuits_a = self._load_circuits(args.circ_a, args.source, args.round_key)
+        cfg_a = self._prepare_config(
+            getattr(args, 'cfg_a', None), 
+            getattr(args, 'model_a', None), 
+            getattr(args, 'classes_a', None), 
+            getattr(args, 'dataset_a', None)
+        )
+        model_a = self._load_model(cfg_a, getattr(args, 'ckpt_a', None))
+        circuits_a = self._load_circuits(
+            getattr(args, 'circ_a', None), 
+            getattr(args, 'source', 'local'), 
+            getattr(args, 'round_key', None)
+        )
         
         # --- Side B Loading (Defaults to A if not provided) ---
-        if args.ckpt_b or args.cfg_b or args.circ_b:
-            cfg_b = self._prepare_config(args.cfg_b or args.cfg_a, args.model_b, args.classes_b, args.dataset_b)
-            model_b = self._load_model(cfg_b, args.ckpt_b)
-            circuits_b = self._load_circuits(args.circ_b, args.source, args.round_key)
+        ckpt_b = getattr(args, 'ckpt_b', None)
+        cfg_b_arg = getattr(args, 'cfg_b', None)
+        circ_b = getattr(args, 'circ_b', None)
+        
+        if ckpt_b or cfg_b_arg or circ_b:
+            cfg_b = self._prepare_config(
+                cfg_b_arg or getattr(args, 'cfg_a', None), 
+                getattr(args, 'model_b', None), 
+                getattr(args, 'classes_b', None), 
+                getattr(args, 'dataset_b', None)
+            )
+            model_b = self._load_model(cfg_b, ckpt_b)
+            circuits_b = self._load_circuits(
+                circ_b, 
+                getattr(args, 'source', 'local'), 
+                getattr(args, 'round_key', None)
+            )
         else:
             cfg_b, model_b, circuits_b = cfg_a, model_a, circuits_a
             
         testloader = load_dataset(cfg_a)
         
-        if args.mode == "prehead":
+        if getattr(args, 'mode', 'circuit') == "prehead":
             self.print_header("Pre-head Latent CKA")
-            act_a = extract_prehead_latents(model_a, testloader, cfg_a, max_samples=args.max_samples)
-            act_b = extract_prehead_latents(model_b, testloader, cfg_b, max_samples=args.max_samples)
+            act_a = extract_prehead_latents(model_a, testloader, cfg_a, max_samples=getattr(args, 'max_samples', 1000))
+            act_b = extract_prehead_latents(model_b, testloader, cfg_b, max_samples=getattr(args, 'max_samples', 1000))
             
             cka_val = linear_cka(act_a, act_b)
             self.print_result("Pre-head CKA", f"{cka_val:.4f}")
             
-        elif args.mode == "circuit":
-            client_key_a = f"client_{args.client_a}"
-            client_key_b = f"client_{args.client_b}"
+        elif getattr(args, 'mode', 'circuit') == "circuit":
+            client_key_a = f"client_{getattr(args, 'client_a', 0)}"
+            client_key_b = f"client_{getattr(args, 'client_b', 0)}"
             
             if client_key_a not in circuits_a:
                 sys.exit(f"[ERROR] {client_key_a} not found in Side A circuits.")
@@ -68,8 +90,8 @@ class CKACompareExperiment(BaseExperiment):
                 nodes_a = circ_data_a[cls].get("active_nodes", {})
                 nodes_b = circ_data_b[cls].get("active_nodes", {})
                 
-                act_a = extract_circuit_activations(model_a, testloader, nodes_a, cfg_a, layer_name=args.layer, max_samples=args.max_samples)
-                act_b = extract_circuit_activations(model_b, testloader, nodes_b, cfg_b, layer_name=args.layer, max_samples=args.max_samples)
+                act_a = extract_circuit_activations(model_a, testloader, nodes_a, cfg_a, layer_name=getattr(args, 'layer', None), max_samples=getattr(args, 'max_samples', 1000))
+                act_b = extract_circuit_activations(model_b, testloader, nodes_b, cfg_b, layer_name=getattr(args, 'layer', None), max_samples=getattr(args, 'max_samples', 1000))
                 
                 score = linear_cka(act_a, act_b)
                 results[cls] = score
@@ -80,8 +102,9 @@ class CKACompareExperiment(BaseExperiment):
                 print("-" * 60)
                 self.print_result("Average CKA", f"{avg:.4f}")
                 
-            if args.output and results:
-                self._save_heatmap(results, args.output, client_key_a, client_key_b)
+            output_path = getattr(args, 'output', None)
+            if output_path and results:
+                self._save_heatmap(results, output_path, client_key_a, client_key_b)
 
     def _prepare_config(self, cfg_path, model_name, num_classes, dataset):
         cfg = ExperimentConfig.load(cfg_path) if cfg_path else ExperimentConfig()

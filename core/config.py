@@ -85,6 +85,6 @@ class ExperimentConfig:
         # Strip documentation-only keys (prefixed with "_") and any unknown fields
         # so config JSONs can carry inline comments without breaking construction.
         known_fields = {f.name for f in dataclasses.fields(cls)}
-        data = {k: v for k, v in data.items() if k in known_fields}
+        data = {k: v for k, v in data.items() if k in known_fields and v is not None}
         return cls(**data)
 

@@ -87,10 +87,14 @@ class CKACompareExperiment(BaseExperiment):
             elif getattr(args, 'circ_a', None) or args.exp_a: return get_circuits_a()
             return None
         
+        # Ensure data_root is valid (especially for Colab/Kaggle)
+        if not cfg_a.data_root:
+            cfg_a.data_root = "./data"
+        if not cfg_b.data_root:
+            cfg_b.data_root = "./data"
+
         # Test split used to generate matching samples for CKA
         # We can just use testloader from exp_a as long as datasets match
-        testloader = load_dataset(cfg_a)
-        
         testloader = load_dataset(cfg_a)
         
         if args.mode == "prehead":
@@ -170,8 +174,9 @@ class CKACompareExperiment(BaseExperiment):
                     plt.figure(figsize=(10, 2))
                     sns.heatmap(df, annot=True, cmap="YlGnBu", vmin=0, vmax=1.0)
                     plt.title(f"Cross-client Circuit CKA\\n{client_key_a} vs {client_key_b}")
-                    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-                    plt.savefig(args.output, bbox_inches="tight")
+                    output_path = os.path.abspath(args.output)
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                    plt.savefig(output_path, bbox_inches="tight")
                     print(f"\nSaved CKA heatmap to: {args.output}")
                 except Exception as e:
                     print(f"Failed to generate heatmap: {e}")

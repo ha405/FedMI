@@ -7,4 +7,3 @@ if _ROOT not in sys.path:
 
 from .loader import load_config, load_model, load_dataset, load_circuits
 from .evaluator import eval_full, eval_sufficiency, eval_necessity, apply_circuit
-from .stitcher import stitch_circuits

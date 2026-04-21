@@ -15,6 +15,9 @@ class CKACompareExperiment(BaseExperiment):
     def run(self):
         args = self.args
         
+        # --- Path Resolution for Folders ---
+        self._resolve_folder_paths(args)
+        
         # --- Side A Loading ---
         cfg_a = self._prepare_config(
             getattr(args, 'cfg_a', None), 
@@ -74,8 +77,9 @@ class CKACompareExperiment(BaseExperiment):
             
             # Intersection of classes
             common_classes = sorted(list(set(circ_data_a.keys()).intersection(set(circ_data_b.keys()))))
-            if args.classes:
-                classes_to_compare = [str(c) for c in args.classes if str(c) in common_classes]
+            classes_arg = getattr(args, 'classes', None)
+            if classes_arg:
+                classes_to_compare = [str(c) for c in classes_arg if str(c) in common_classes]
             else:
                 classes_to_compare = common_classes
                 
@@ -106,23 +110,44 @@ class CKACompareExperiment(BaseExperiment):
             if output_path and results:
                 self._save_heatmap(results, output_path, client_key_a, client_key_b)
 
+    def _resolve_folder_paths(self, args):
+        """Resolves config/ckpt/circ paths if exp directories are provided."""
+        rnd = getattr(args, 'round', None)
+        
+        # Side A
+        exp_a = getattr(args, 'exp_a', None)
+        if exp_a:
+            if not getattr(args, 'cfg_a', None):
+                args.cfg_a = os.path.join(exp_a, "config.json")
+            if rnd is not None:
+                if not getattr(args, 'ckpt_a', None):
+                    args.ckpt_a = os.path.join(exp_a, "checkpoints", f"checkpoint_round_{rnd}.pt")
+                if not getattr(args, 'circ_a', None):
+                    args.circ_a = os.path.join(exp_a, "circuits", f"circuits_round_{rnd}.json")
+                    
+        # Side B
+        exp_b = getattr(args, 'exp_b', None)
+        if exp_b:
+            if not getattr(args, 'cfg_b', None):
+                args.cfg_b = os.path.join(exp_b, "config.json")
+            if rnd is not None:
+                if not getattr(args, 'ckpt_b', None):
+                    args.ckpt_b = os.path.join(exp_b, "checkpoints", f"checkpoint_round_{rnd}.pt")
+                if not getattr(args, 'circ_b', None):
+                    args.circ_b = os.path.join(exp_b, "circuits", f"circuits_round_{rnd}.json")
+
     def _prepare_config(self, cfg_path, model_name, num_classes, dataset):
         cfg = ExperimentConfig.load(cfg_path) if cfg_path else ExperimentConfig()
         if model_name: cfg.model_name = model_name
         if num_classes: cfg.num_classes = int(num_classes)
         if dataset: cfg.dataset_name = dataset
-        # Ensure data_root defaults to local/colab expectations if not set
-        if not cfg.data_root or cfg.data_root == "./data":
-            # Check if we are in colab
-            if os.path.exists("/content"):
-                cfg.data_root = "/content/FedMI/data"
-            else:
-                cfg.data_root = "./data"
         return cfg
 
     def _load_model(self, cfg, ckpt_path):
         if not ckpt_path:
             sys.exit("[ERROR] No checkpoint path provided for model.")
+        if not os.path.exists(ckpt_path):
+            sys.exit(f"[ERROR] Checkpoint not found: {ckpt_path}")
         model = get_model(cfg)
         state = torch.load(ckpt_path, map_location=cfg.device)
         model.load_state_dict(state.get("model_state_dict", state))
@@ -133,15 +158,17 @@ class CKACompareExperiment(BaseExperiment):
     def _load_circuits(self, circ_path, source, round_key):
         if not circ_path:
             sys.exit("[ERROR] No circuit JSON path provided.")
+        if not os.path.exists(circ_path):
+            sys.exit(f"[ERROR] Circuit file not found: {circ_path}")
         with open(circ_path) as f:
             data = json.load(f)
         
-        # Handle all_circuits.json nested structure
-        if round_key and round_key in data:
-            round_data = data[round_key]
-        elif isinstance(data, dict) and any(k.startswith("round_") for k in data.keys()):
+        # Handle all_circuits.json nested structure vs direct circuits_round_X.json
+        if round_key and str(round_key) in data:
+            round_data = data[str(round_key)]
+        elif isinstance(data, dict) and any(str(k).startswith("round_") for k in data.keys()):
             # Detect latest round
-            rounds = sorted([k for k in data.keys() if k.startswith("round_")], key=lambda r: int(r.split("_")[1]))
+            rounds = sorted([k for k in data.keys() if str(k).startswith("round_")], key=lambda r: int(r.split("_")[1]))
             round_data = data[rounds[-1]]
         else:
             round_data = data
@@ -163,19 +190,24 @@ class CKACompareExperiment(BaseExperiment):
             print(f"[warning] Heatmap failed: {e}")
 
 def add_args(subparsers):
-    p = subparsers.add_parser("cka", help="Standalone CKA Comparison (Manual Paths)")
-    # Side A
-    p.add_argument("--ckpt_a", required=True, help="Path to checkpoint A (.pt)")
-    p.add_argument("--cfg_a", help="Path to config A (.json)")
-    p.add_argument("--circ_a", help="Path to circuits A (.json)")
+    p = subparsers.add_parser("cka", help="Local/Standalone CKA Comparison")
+    # Folder-based
+    p.add_argument("--exp_a", help="Path to experiment root directory A")
+    p.add_argument("--exp_b", help="Path to experiment root directory B")
+    p.add_argument("--round", type=int, help="Round number to automatically find weights/circuits (if using --exp_a)")
+    
+    # Side A (Explicit Overrides)
+    p.add_argument("--ckpt_a", help="Direct path to checkpoint A (.pt)")
+    p.add_argument("--cfg_a", help="Direct path to config A (.json)")
+    p.add_argument("--circ_a", help="Direct path to circuits A (.json)")
     p.add_argument("--model_a", help="Override: model name for Side A (e.g. ResNet)")
     p.add_argument("--classes_a", type=int, help="Override: num classes for Side A")
     p.add_argument("--dataset_a", help="Override: dataset name for Side A")
     
-    # Side B
-    p.add_argument("--ckpt_b", help="Path to checkpoint B (optional, defaults to side A)")
-    p.add_argument("--cfg_b", help="Path to config B")
-    p.add_argument("--circ_b", help="Path to circuits B")
+    # Side B (Explicit Overrides)
+    p.add_argument("--ckpt_b", help="Direct path to checkpoint B (optional, defaults to side A)")
+    p.add_argument("--cfg_b", help="Direct path to config B")
+    p.add_argument("--circ_b", help="Direct path to circuits B")
     p.add_argument("--model_b", help="Override: model name for Side B")
     p.add_argument("--classes_b", type=int, help="Override: num classes for Side B")
     p.add_argument("--dataset_b", help="Override: dataset name for Side B")

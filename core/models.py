@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import List
+from .resnet import ResNet
 
 class SimpleCNN(nn.Module):
     def __init__(self, conv_channels: List[int] = None, num_classes: int = 10, input_channels: int = 1):
@@ -35,6 +36,12 @@ def get_model(config) -> nn.Module:
         in_channels = 1
     else:
         in_channels = 3
+
+    if getattr(config, 'model_name', 'SimpleCNN') == "ResNet":
+        return ResNet(
+            num_classes=config.num_classes,
+            input_channels=in_channels
+        ).to(config.device)
 
     return SimpleCNN(
         conv_channels=config.conv_channels,

@@ -15,6 +15,7 @@ from playground.experiments import (
     StitchCircuitExperiment,
     EnsembleDistillExperiment,
     LTHPruneExperiment,
+    CKACompareExperiment,
 )
 
 __all__ = [
@@ -37,4 +38,5 @@ __all__ = [
     "StitchCircuitExperiment",
     "EnsembleDistillExperiment",
     "LTHPruneExperiment",
+    "CKACompareExperiment",
 ]

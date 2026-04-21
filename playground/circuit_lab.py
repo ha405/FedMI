@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from playground.experiments import REGISTRY
-from playground.experiments import apply, stitch, ensemble_distill, lth_prune
+from playground.experiments import apply, stitch, ensemble_distill, lth_prune, cka_compare
 
 
 def build_parser():
@@ -19,6 +19,7 @@ def build_parser():
     stitch.add_args(sub)
     ensemble_distill.add_args(sub)
     lth_prune.add_args(sub)
+    cka_compare.add_args(sub)
     return parser
 
 

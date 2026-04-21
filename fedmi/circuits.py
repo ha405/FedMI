@@ -13,6 +13,7 @@ from circuits.hooks import (
     get_inverse_mask_hook,
     get_mean_ablation_hook,
 )
+from circuits.pruning import get_current_sparsity, apply_weight_sparsity
 from circuits.cka import linear_cka, extract_circuit_activations, extract_prehead_latents, cka_matrix
 
 __all__ = [
@@ -31,4 +32,6 @@ __all__ = [
     "extract_circuit_activations",
     "extract_prehead_latents",
     "cka_matrix",
+    "get_current_sparsity",
+    "apply_weight_sparsity",
 ]

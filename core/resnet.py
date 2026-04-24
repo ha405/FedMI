@@ -35,17 +35,27 @@ class BasicBlock(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, num_classes=1000, input_channels=3):
+    """
+    Standard ResNet (Small Variant)
+    Architecture:
+    - Conv1: 7x7, 64 filters, stride 2
+    - Block 1: 64 filters
+    - Block 2: 128 filters, stride 2
+    - Block 3: 192 filters, stride 2
+    - Block 4: 256 filters, stride 2
+    - Head: Global Average Pool + Linear(256, num_classes)
+    """
+    def __init__(self, num_classes=5, input_channels=3):
         super(ResNet, self).__init__()
         self.inplanes = 64
+        
+        # Initial Stem (Standard Big ResNet Stem)
         self.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         
-        # User specified block names: block1, block2, block3, block4
-        # Channels: 64, 128, 192, 256
-        # The user's architecture snippet shows each block as a Sequential containing a single BasicBlock.
+        # Blocks (Uncoupled from conv_channels)
         self.block1 = self._make_layer(64, stride=1)
         self.block2 = self._make_layer(128, stride=2)
         self.block3 = self._make_layer(192, stride=2)

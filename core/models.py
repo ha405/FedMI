@@ -16,10 +16,7 @@ class SimpleCNN(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
         
         # Dynamic calculation for Linear layer size
-        # MNIST (28x28) -> 3 pools -> 3x3 spatial dimension
-        # CIFAR (32x32) -> 3 pools -> 4x4 spatial dimension
         self.spatial_dim = 3 if input_channels == 1 else 4
-        
         self.fc = nn.Linear(conv_channels[2] * self.spatial_dim * self.spatial_dim, num_classes)
 
     def forward(self, x):
@@ -37,12 +34,16 @@ def get_model(config) -> nn.Module:
     else:
         in_channels = 3
 
-    if getattr(config, 'model_name', 'SimpleCNN') == "ResNet":
+    model_name = getattr(config, 'model_name', 'SimpleCNN')
+    
+    # Standard ResNet architectures (Fixed filters)
+    if model_name in ["ResNet", "resnet10", "resnet18"]:
         return ResNet(
             num_classes=config.num_classes,
             input_channels=in_channels
         ).to(config.device)
 
+    # SimpleCNN (Uses dynamic conv_channels)
     return SimpleCNN(
         conv_channels=config.conv_channels,
         num_classes=config.num_classes,

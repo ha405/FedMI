@@ -1,6 +1,6 @@
-import json
 import os
 import sys
+import contextlib
 
 import torch
 
@@ -43,7 +43,8 @@ def load_model(exp_dir: str, cfg: ExperimentConfig, round_num=None):
 
 
 def load_dataset(cfg: ExperimentConfig):
-    _, testset = get_dataset(cfg)
+    with open(os.devnull, 'w') as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+        _, testset = get_dataset(cfg)
     return get_test_dataloader(testset, cfg)
 
 

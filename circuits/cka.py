@@ -88,7 +88,7 @@ def extract_circuit_activations(model, dataloader, circuit, config, layer_name=N
     out = torch.cat(activations, dim=0)
     return out[:max_samples]
 
-def extract_prehead_latents(model, dataloader, config, max_samples=1000):
+def extract_prehead_latents(model, dataloader, config, target_label=None, max_samples=1000):
     device = config.device
     layer_name = _get_target_layer_name(model)
     
@@ -103,7 +103,13 @@ def extract_prehead_latents(model, dataloader, config, max_samples=1000):
     model.eval()
     samples_collected = 0
     with torch.no_grad():
-        for inputs, _ in dataloader:
+        for inputs, labels in dataloader:
+            if target_label is not None:
+                mask = labels == int(target_label)
+                inputs = inputs[mask]
+                if inputs.size(0) == 0:
+                    continue
+                    
             inputs = inputs.to(device)
             model(inputs)
             samples_collected += inputs.size(0)

@@ -3,18 +3,6 @@ Advanced ML Research Project - Mechanistic Analysis of Circuit Preservation in F
 
 ArXiv link: https://arxiv.org/abs/2512.23043
 
-## Run on Colab / Kaggle 
-
-FedMI ships with a **unified `fedmi/` package** that re-exports the entire codebase and auto-configures paths, device, and dependencies for cloud notebooks.
-
-| Notebook | Description | Open in Colab |
-| :--- | :--- | :--- |
-| `notebooks/fedmi_train.ipynb` | Full federated training pipeline | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ha405/FedMI/blob/cvpr/notebooks/fedmi_train.ipynb) |
-| `notebooks/fedmi_playground.ipynb` | Playground experiments (apply, stitch, ensemble distillation, LTH pruning) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ha405/FedMI/blob/cvpr/notebooks/fedmi_playground.ipynb) |
-| `notebooks/fedmi_sae.ipynb` | SAE interpretability analysis | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ha405/FedMI/blob/cvpr/notebooks/fedmi_sae.ipynb) |
-
-> **Kaggle**: Upload any notebook and enable GPU in *Accelerator* settings. The repo will be auto-cloned .
-
 ## Quick Start
 
 ### 1. Run Experiments
@@ -52,3 +40,7 @@ Outputs are saved in `checkpoints/<experiment_name>/`.
 #### Interactive Viewer
 1. Open `checkpoints/<experiment_name>/visualizer.html` in your browser.
 2. Load the `circuits/all_circuits.json` file from the same directory to explore network graphs.
+
+---
+
+Detailed CKA Similarity results and progression analysis are now available in **[RESULTS_CKA.md](RESULTS_CKA.md)**.

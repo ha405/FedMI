@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+from typing import List, Dict, Tuple, Optional
 from .hooks import get_gate_hook, get_gate_mean_hook
 
 def is_valid_layer(name, module):
@@ -14,84 +15,119 @@ def is_valid_layer(name, module):
     if name == 'fc': # typical resnet head
         return False
     return True
-def discover_client_circuit(model, dataloader, target_class, config, layer_means=None):
-    device = config.device
-    
-    # 1. Pre-collect target class samples (Optimization for non-IID/sparse data)
-    # This prevents scanning the entire dataloader in every discovery step.
-    # We collect up to a reasonable buffer (e.g., 1024 samples) which is plenty for discovery.
-    target_samples = []
-    target_labels = []
-    max_buf = 1024
-    
-    for b_inputs, b_labels in dataloader:
-        mask = (b_labels == target_class)
-        if mask.any():
-            target_samples.append(b_inputs[mask])
-            target_labels.append(b_labels[mask])
-            
-            # Check buffer size
-            if sum(x.shape[0] for x in target_samples) >= max_buf:
-                break
-                
-    if not target_samples:
-        return {name: [] for name in [n for n, m in model.named_modules() if is_valid_layer(n, m)]}
 
-    # Combine into a single batch for easier sampling
-    all_inputs = torch.cat(target_samples, dim=0).to(device)
-    all_labels = torch.cat(target_labels, dim=0).to(device)
+def precollect_all_class_samples(dataloader, classes: List[int], max_per_class: int = 1024,
+                                  device: str = 'cuda') -> Dict[int, Tuple[torch.Tensor, torch.Tensor]]:
+    """
+    Scan a dataloader ONCE and collect samples for ALL requested classes.
+    
+    This replaces the pattern of calling discover_client_circuit 10 times,
+    each scanning the entire dataloader to find one class. Instead we do
+    1 pass and hand pre-collected tensors to the discovery function.
+    
+    Returns:
+        {class_id: (inputs_tensor, labels_tensor)}  — already on device.
+        Missing classes (no samples found) are omitted from the dict.
+    """
+    class_inputs = {c: [] for c in classes}
+    class_labels = {c: [] for c in classes}
+    counts = {c: 0 for c in classes}
+
+    for b_inputs, b_labels in dataloader:
+        for c in classes:
+            if counts[c] >= max_per_class:
+                continue
+            mask = (b_labels == c)
+            if mask.any():
+                class_inputs[c].append(b_inputs[mask])
+                class_labels[c].append(b_labels[mask])
+                counts[c] += mask.sum().item()
+
+        # Early exit if all classes are full
+        if all(counts[c] >= max_per_class for c in classes):
+            break
+
+    result = {}
+    for c in classes:
+        if class_inputs[c]:
+            result[c] = (
+                torch.cat(class_inputs[c]).to(device),
+                torch.cat(class_labels[c]).to(device),
+            )
+    return result
+
+
+def discover_client_circuit_cached(model, class_inputs: torch.Tensor, class_labels: torch.Tensor,
+                                    target_class: int, config, layer_means=None):
+    """
+    Circuit discovery using PRE-COLLECTED samples (already on device).
+    
+    This is the optimized variant of discover_client_circuit that avoids
+    scanning the dataloader.  Call precollect_all_class_samples() first,
+    then pass the tensors here.
+    """
+    device = config.device
+
+    if class_inputs is None or class_inputs.shape[0] == 0:
+        return {name: [] for name, m in model.named_modules() if is_valid_layer(name, m)}
+
+    all_inputs = class_inputs  # already on device
+    all_labels = class_labels
     num_avail = all_inputs.shape[0]
 
     criterion = nn.CrossEntropyLoss()
     original_grads = {name: param.requires_grad for name, param in model.named_parameters()}
     model.eval()
-    for param in model.parameters(): param.requires_grad = False
-    
+    for param in model.parameters():
+        param.requires_grad = False
+
     gate_params, hooks, layers = {}, [], []
     for name, module in model.named_modules():
         if is_valid_layer(name, module):
             layers.append(name)
             if isinstance(module, nn.Conv2d):
                 gate_params[name] = nn.Parameter(torch.ones(1, module.out_channels, 1, 1).to(device) * 2.0)
-            else: # Linear
+            else:
                 gate_params[name] = nn.Parameter(torch.ones(module.out_features).to(device) * 2.0)
-            
+
             if config.use_mean_ablation and layer_means and name in layer_means:
                 hooks.append(module.register_forward_hook(get_gate_mean_hook(gate_params[name], layer_means[name])))
             else:
                 hooks.append(module.register_forward_hook(get_gate_hook(gate_params[name])))
 
     optimizer = optim.Adam(gate_params.values(), lr=config.gate_lr)
-    
-    # Discovery Loop: Now significantly faster as we sample from pre-collected buffer
+
     for _ in range(config.discovery_steps):
-        # Sample a batch from our collected samples
-        # If we have fewer than batch_size, take all. Otherwise, take a random subset.
         if num_avail <= config.batch_size:
             idx = torch.arange(num_avail, device=device)
         else:
             idx = torch.randperm(num_avail, device=device)[:config.batch_size]
-        
+
         inputs = all_inputs[idx]
         labels = all_labels[idx]
-        
+
         optimizer.zero_grad()
         l0_loss = sum(torch.sigmoid(p).sum() for p in gate_params.values())
         logits = model(inputs)
-        
+
         cls_loss = criterion(logits, labels)
         loss = cls_loss + (config.l0_lambda * l0_loss)
-        
+
         loss.backward()
         optimizer.step()
-        
+
     circuit = {name: np.where((gate_params[name] > 0).float().cpu().numpy().flatten() == 1)[0].tolist() for name in layers}
-    
-    for h in hooks: h.remove()
-    for name, param in model.named_parameters(): 
+
+    for h in hooks:
+        h.remove()
+    for name, param in model.named_parameters():
         param.requires_grad = original_grads.get(name, True)
-        
+
     return circuit
+
+
+
+
 
 def compute_layer_means(model, dataloader, config):
     """

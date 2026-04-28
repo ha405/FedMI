@@ -1,150 +1,130 @@
 import os
 import json
-import itertools
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from typing import List, Dict
 from analysis.visualizer.base import BaseVisualizer
 
-def calculate_iou(circuit1: List[int], circuit2: List[int]) -> float:
-    set1, set2 = set(circuit1), set(circuit2)
-    intersection = len(set1.intersection(set2))
-    union = len(set1.union(set2))
-    return intersection / union if union > 0 else 1.0
-
-def get_active_indices(node_data, layer_name):
-    try:
-        if "active_nodes" in node_data:
-            nodes = node_data["active_nodes"].get(layer_name, [])
-        else:
-            nodes = node_data.get(layer_name, [])
-        # Ensure all indices are integers
-        return [int(idx) for idx in nodes]
-    except (TypeError, ValueError):
-        return []
-
 class MetricsVisualizer(BaseVisualizer):
+    """
+    Visualizes performance metrics from metrics.json:
+    1. Global vs Local model per-class accuracy
+    2. Circuit metrics: Sufficiency (accuracy) and Necessity (inverse accuracy)
+    """
     def __init__(self, output_dir):
         super().__init__(output_dir)
-        self.layer_names = None
-    
-    def _extract_layer_names(self, circuit_data: Dict) -> List[str]:
-        """Extract layer names dynamically from circuit data."""
-        if self.layer_names is not None:
-            return self.layer_names
-        
-        layer_names = set()
-        for client_data in circuit_data.values():
-            for class_data in client_data.values():
-                active_nodes = class_data.get("active_nodes", {})
-                layer_names.update(active_nodes.keys())
-        
-        self.layer_names = sorted(list(layer_names))
-        return self.layer_names
+        self.metrics_data = None
 
-    def analyze_specialist_distinctness(self, final_round_data: Dict):
-        print("\n--- Analysis: Specialist Distinctness (Final Round) ---")
-        
-        client_keys = sorted(final_round_data.keys(), key=lambda c: int(c.split('_')[1]))
-        
-        # Extract layer names dynamically
-        layer_names = self._extract_layer_names(final_round_data)
-        
-        client_aggregated_circuits = {c: {l: set() for l in layer_names} for c in client_keys}
-        
-        for client in client_keys:
-            classes = final_round_data[client].keys()
-            for cls in classes:
-                for layer in layer_names:
-                    indices = get_active_indices(final_round_data[client][cls], layer)
-                    client_aggregated_circuits[client][layer].update(indices)
+    def load_metrics(self):
+        path = os.path.join(self.output_dir, "metrics.json")
+        if not os.path.exists(path):
+            return False
+        with open(path) as f:
+            self.metrics_data = json.load(f).get("rounds", [])
+        return len(self.metrics_data) > 0
 
-        avg_iou_by_layer = {layer: [] for layer in layer_names}
+    def plot_circuit_metrics(self):
+        """Plots circuit sufficiency (accuracy) and necessity across rounds for sampled classes."""
+        if not self.metrics_data or "circuit_metrics" not in self.metrics_data[0]:
+            return
+
+        rounds = [r["round"] for r in self.metrics_data]
         
-        for layer_name in layer_names:
-            layer_ious = []
-            for i, j in itertools.combinations(range(len(client_keys)), 2):
-                client1, client2 = client_keys[i], client_keys[j]
-                
-                circuit1 = list(client_aggregated_circuits[client1][layer_name])
-                circuit2 = list(client_aggregated_circuits[client2][layer_name])
-                
-                iou = calculate_iou(circuit1, circuit2)
-                layer_ious.append(iou)
+        # Pick 5 classes that have metrics
+        sample_classes = set()
+        for r in self.metrics_data:
+            if "circuit_metrics" in r:
+                sample_classes.update(r["circuit_metrics"]["global"].get("client_0", {}).keys())
+        
+        sample_classes = sorted(list(sample_classes))[:5]
+        if not sample_classes:
+            return
+
+        plt.style.use("seaborn-v0_8-darkgrid" if "seaborn-v0_8-darkgrid" in plt.style.available else "ggplot")
+
+        for cls_name in sample_classes:
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
             
-            avg = np.mean(layer_ious) if layer_ious else 0
-            avg_iou_by_layer[layer_name] = avg
-
-        fig = plt.figure(figsize=(10, 6))
-        plt.bar(avg_iou_by_layer.keys(), avg_iou_by_layer.values(), color='skyblue')
-        plt.title('Inter-Client Circuit Overlap (Should be Low for Disjoint Tasks)')
-        plt.ylabel('Average IoU')
-        plt.xlabel('Layer')
-        plt.ylim(0, 1.05)
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        
-        self.save_plot(fig, "Specialist_Distinctness.png")
-
-    def analyze_local_vs_global_shift_controlled(self):
-        print("\n--- Analysis: Local vs Global Shift ---")
-        
-        round_keys = sorted(self.data.keys(), key=lambda r: int(r.split('_')[1]))
-        last_round = self.data[round_keys[-1]]["clients_local_model"]
-        client_keys = sorted(last_round.keys(), key=lambda c: int(c.split('_')[1]))
-        
-        # Extract layer names dynamically
-        layer_names = self._extract_layer_names(last_round)
-        
-        for client_key in client_keys:
-            classes = sorted(last_round[client_key].keys())
-            num_classes = len(classes)
-            if num_classes == 0: continue
-
-            fig, axes = plt.subplots(num_classes, 1, figsize=(10, 5 * num_classes), sharex=True)
-            if num_classes == 1: axes = [axes]
+            # 1. Sufficiency (Accuracy)
+            ax1.set_title(f"Circuit Metrics: {cls_name}")
+            for target in ["local", "global"]:
+                # Use client 0 as representative or mean across clients?
+                # Let's plot mean across all clients that have this class
+                vals = []
+                for r in self.metrics_data:
+                    round_vals = []
+                    for cid, class_dict in r.get("circuit_metrics", {}).get(target, {}).items():
+                        if cls_name in class_dict:
+                            round_vals.append(class_dict[cls_name]["accuracy"])
+                    vals.append(np.mean(round_vals) if round_vals else np.nan)
+                
+                ax1.plot(rounds, vals, "-o", markersize=3, label=f"{target.capitalize()} Sufficiency")
             
-            fig.suptitle(f'Local vs Global Similarity: {client_key}', fontsize=16)
+            ax1.set_ylabel("Accuracy (%)")
+            ax1.legend()
+            ax1.grid(True, alpha=0.3)
 
-            for i, class_name in enumerate(classes):
-                ax = axes[i]
-                plot_data = {layer: [] for layer in layer_names}
-
-                for round_key in round_keys:
-                    try:
-                        local_node = self.data[round_key]["clients_local_model"][client_key][class_name]
-                        global_node = self.data[round_key]["clients_global_model"][client_key][class_name]
-                        
-                        for layer in layer_names:
-                            l_circ = get_active_indices(local_node, layer)
-                            g_circ = get_active_indices(global_node, layer)
-                            plot_data[layer].append(calculate_iou(l_circ, g_circ))
-                    except KeyError:
-                        for layer in layer_names: plot_data[layer].append(np.nan)
-
-                for layer in layer_names:
-                    valid_indices = [j for j, val in enumerate(plot_data[layer]) if not np.isnan(val)]
-                    valid_rounds = [j+1 for j in valid_indices]
-                    valid_ious = [plot_data[layer][j] for j in valid_indices]
-                    
-                    ax.plot(valid_rounds, valid_ious, marker='o', label=layer)
+            # 2. Necessity
+            for target in ["local", "global"]:
+                vals = []
+                for r in self.metrics_data:
+                    round_vals = []
+                    for cid, class_dict in r.get("circuit_metrics", {}).get(target, {}).items():
+                        if cls_name in class_dict:
+                            round_vals.append(class_dict[cls_name]["necessity"])
+                    vals.append(np.mean(round_vals) if round_vals else np.nan)
                 
-                ax.set_title(f"Class: {class_name}")
-                ax.set_ylabel('IoU')
-                ax.set_ylim(-0.05, 1.05)
-                ax.grid(True, linestyle='--', alpha=0.6)
-                ax.legend()
-                
-            axes[-1].set_xlabel('Federated Round')
-            plt.tight_layout(rect=[0, 0, 1, 0.96])
+                ax2.plot(rounds, vals, "-s", markersize=3, label=f"{target.capitalize()} Necessity")
+            
+            ax2.set_ylabel("Inverse Acc (%)")
+            ax2.set_xlabel("Round")
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
 
-            self.save_plot(fig, f"Local_vs_Global_{client_key}.png")
+            safe_name = cls_name.replace("/", "_").replace(" ", "_")
+            self.save_plot(fig, f"circuit_metrics_{safe_name}.png")
+            plt.close(fig)
+
+    def plot_local_vs_global_accuracy(self):
+        """Compares local model test accuracy vs global model accuracy on global test set."""
+        if not self.metrics_data or "clients" not in self.metrics_data[0]:
+            return
+
+        rounds = [r["round"] for r in self.metrics_data]
+        client_ids = sorted(self.metrics_data[0]["clients"].keys(), key=lambda x: int(x))
+        
+        # Plot mean client test accuracy vs global accuracy
+        global_acc = [r["global_accuracy"] for r in self.metrics_data]
+        
+        mean_client_test_acc = []
+        for r in self.metrics_data:
+            c_accs = []
+            for cid in client_ids:
+                if "test_class_accuracy" in r["clients"][cid]:
+                    # Mean accuracy across all classes seen by this client
+                    vals = list(r["clients"][cid]["test_class_accuracy"].values())
+                    if vals: c_accs.append(np.mean(vals))
+            mean_client_test_acc.append(np.mean(c_accs) if c_accs else np.nan)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(rounds, global_acc, "k--", linewidth=2, label="Global Model (Global Test)")
+        ax.plot(rounds, mean_client_test_acc, "b-", linewidth=1.5, label="Local Models (Avg on Global Test)")
+        
+        ax.set_title("Generalization Gap: Local vs Global Models")
+        ax.set_xlabel("Round")
+        ax.set_ylabel("Accuracy (%)")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        self.save_plot(fig, "generalization_gap.png")
+        plt.close(fig)
 
     def run(self):
-        if not self.load_data(): return
+        if not self.load_metrics():
+            # Fallback to old behavior if needed, but we prefer metrics.json
+            return
         
-        sorted_keys = sorted(self.data.keys(), key=lambda r: int(r.split('_')[1]))
-        if not sorted_keys: return
-        final_round_key = sorted_keys[-1]
-        
-        self.analyze_specialist_distinctness(self.data[final_round_key]["clients_global_model"])
-        self.analyze_local_vs_global_shift_controlled()
+        print("[MetricsVisualizer] Generating performance and circuit plots...")
+        self.plot_circuit_metrics()
+        self.plot_local_vs_global_accuracy()

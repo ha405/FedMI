@@ -62,3 +62,11 @@ Thumbs.db
 # =========================
 .ipynb_checkpoints/
 notebooks/outputs/
+
+# =========================
+# Results & Scratch
+# =========================
+/results/
+/scratch/
+/exps/
+

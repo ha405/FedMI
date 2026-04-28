@@ -27,13 +27,8 @@ class ExperimentConfig:
     local_epochs: int = 5
     
     # --- Partitioning ---
-    partition_method: str = "iid"  # "iid", "dirichlet", "systematic_skew", "manual"
+    partition_method: str = "iid"  # "iid", "dirichlet"
     dirichlet_alpha: float = 0.5
-    # For "systematic_skew": {client_id: {class_id: probability}}
-    # e.g. {0: {0: 0.9, 1: 0.1}, 1: {0: 0.1, 1: 0.9}}
-    skew_profile: Optional[Dict[int, Dict[int, float]]] = None
-    # For "manual" (aka "by_class" in original code): {client_id: [class_list]}
-    manual_allocation: Optional[Dict[int, List[int]]] = None
     # For "exact_amounts": {client_id: {class_id: exact_sample_count}}
     exact_allocation: Optional[Dict[int, Dict[int, int]]] = None
 
@@ -62,6 +57,10 @@ class ExperimentConfig:
     # --- Public Data (Server-Side) ---
     public_data_fraction: float = 0.0
     public_data_seed: int = 99
+
+    # --- Discovery Pool ---
+    discovery_samples_per_class: Optional[int] = None # If set, overrides fraction
+    discovery_pool_fraction: float = 0.20             # Default 20% of data for discovery pool
 
     # --- Resume ---
     resume: bool = False

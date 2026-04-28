@@ -1,9 +1,9 @@
 {
-    "_comment": "Default config — all fields listed. Loaded by ExperimentConfig.load(). Override per-experiment in configs/.",
+    "_comment": "Default config. Override any field via CLI: python main.py --dataset CIFAR10 --model ResNet --partition dirichlet --alpha 0.3",
 
-    "device": "cpu",
+    "device": "cuda",
     "seed": 42,
-    "output_dir": "./checkpoints/experiment_run",
+    "output_dir": "./results/experiment_run",
 
     "dataset_name": "MNIST",
     "data_root": "./data",
@@ -12,16 +12,14 @@
 
     "model_name": "SimpleCNN",
     "conv_channels": [32, 64, 128],
-    "num_classes": 5,
+    "num_classes": 10,
 
-    "num_clients": 3,
-    "num_rounds": 5,
+    "num_clients": 5,
+    "num_rounds": 100,
     "local_epochs": 5,
 
     "partition_method": "iid",
     "dirichlet_alpha": 0.5,
-    "skew_profile": null,
-    "manual_allocation": null,
 
     "train_mode": "sparse",
     "learning_rate": 0.001,
@@ -31,7 +29,7 @@
     "l0_lambda": 0.01,
     "discovery_steps": 200,
 
-    "_comment_classes": "null = auto-derived from partition at runtime (recommended). Set explicitly to restrict discovery to specific classes.",
+    "_comment_classes": "null = auto-derived from partition at runtime (recommended).",
     "classes_to_analyze": null,
     "classes_to_discover_per_client": null,
 

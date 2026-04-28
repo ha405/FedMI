@@ -169,11 +169,10 @@ class ExperimentRunner:
     def _run_analysis(self):
         try:
             from analysis.visualizer.metrics import MetricsVisualizer
-            from analysis.visualizer.consistency import ConsistencyVisualizer
             from analysis.visualizer.circuit_overlap import CircuitOverlapVisualizer
             from analysis.plot_results import plot_convergence
 
-            for viz in [MetricsVisualizer, ConsistencyVisualizer]:
+            for viz in [MetricsVisualizer]:
                 viz(self.config.output_dir).run()
 
             CircuitOverlapVisualizer(self.config.output_dir, n_classes=5).run()

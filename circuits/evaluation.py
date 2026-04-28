@@ -1,22 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .hooks import get_hard_mask_hook, get_inverse_mask_hook, get_mean_ablation_hook
+from .hooks import get_hard_mask_hook, get_inverse_mask_hook
 from core.data_cache import EvaluationCache
 
 
 def evaluate_circuit_cached(model, cache: EvaluationCache, circuit, target_class, config,
-                             layer_means=None, log_file=None, class_names=None) -> float:
+                             log_file=None, class_names=None) -> float:
     """Sufficiency test: can the circuit alone perform the task?"""
     device = config.device
     hooks = []
     for layer_name, indices in circuit.items():
         module = model.get_submodule(layer_name)
         idx_t = torch.tensor(indices, dtype=torch.long, device=device)
-        if config.use_mean_ablation and layer_means is not None and layer_name in layer_means:
-            hooks.append(module.register_forward_hook(get_mean_ablation_hook(idx_t, layer_means[layer_name], device)))
-        else:
-            hooks.append(module.register_forward_hook(get_hard_mask_hook(idx_t, device)))
+        hooks.append(module.register_forward_hook(get_hard_mask_hook(idx_t, device)))
 
     model.eval()
     correct, total = 0, 0

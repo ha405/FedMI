@@ -89,22 +89,16 @@ class ExperimentRunner:
                 picked = np.random.choice(idx_k, n_samples, replace=False)
                 class_to_discovery_idx[k] = picked.tolist()
 
-        if self.config.classes_to_discover_per_client is None:
-            self.config.classes_to_discover_per_client = {
-                i: get_classes_for_client(trainset, indices)
-                for i, indices in enumerate(client_indices)
-            }
+        global_discovery_idx = [idx for indices in class_to_discovery_idx.values() for idx in indices]
 
         self.clients = []
         for i, indices in enumerate(client_indices):
             if not indices:
                 continue
-            client_classes = self.config.classes_to_discover_per_client[i]
-            discovery_idx = [idx for cls in client_classes for idx in class_to_discovery_idx.get(cls, [])]
             self.clients.append(FederatedClient(
                 i,
                 get_dataloader(trainset, indices, self.config),
-                get_dataloader(trainset, discovery_idx, self.config) if discovery_idx else None,
+                get_dataloader(trainset, global_discovery_idx, self.config) if global_discovery_idx else None,
                 self.config,
                 self.class_names,
             ))

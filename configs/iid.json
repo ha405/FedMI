@@ -28,9 +28,6 @@
     "l0_lambda": 0.01,
     "discovery_steps": 200,
     "_comment_classes": "null = auto-derived: IID clients will all receive all 10 classes.",
-    "classes_to_analyze": null,
-    "classes_to_discover_per_client": null,
-    "use_mean_ablation": false,
     "use_fedrs": false,
     "fedrs_alpha": 0.4,
     "resume": false

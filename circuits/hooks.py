@@ -9,16 +9,6 @@ def get_gate_hook(gate_param):
         return output * binary_gate(gate_param)
     return hook
 
-def get_gate_mean_hook(gate_param, mean_tensor):
-    """
-    Gating hook that uses STE but falls back to MEAN instead of ZERO.
-    Used during Circuit Discovery training.
-    """
-    def hook(module, input, output):
-        mask = binary_gate(gate_param)
-        return (output * mask) + (mean_tensor * (1.0 - mask))
-    return hook
-
 def apply_mask(output, indices, device, mask_value=1.0, default_value=0.0):
     mask = torch.full_like(output, default_value, device=device)
     if len(indices) > 0:
@@ -50,13 +40,4 @@ def get_inverse_mask_hook(indices, device):
         return output * mask
     return hook
 
-def get_mean_ablation_hook(indices, mean_tensor, device):
-    """
-    Mean Ablation Hook:
-    If kept: Return Output.
-    If pruned: Return Mean Value.
-    """
-    def hook(module, input, output):
-        mask = apply_mask(output, indices, device, mask_value=1.0, default_value=0.0)
-        return (output * mask) + (mean_tensor * (1.0 - mask))
-    return hook
+

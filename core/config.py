@@ -41,14 +41,8 @@ class ExperimentConfig:
     gate_lr: float = 0.1
     l0_lambda: float = 0.01
     discovery_steps: int = 200
-    # If None (default), classes are auto-derived from the client's actual partition at runtime.
-    # Set explicitly (e.g. [0, 1, 3]) to override and analyze specific classes regardless of partition.
-    classes_to_analyze: Optional[List[int]] = None
-    # Per-client class override: {client_id: [class_list]}.
-    # If None, populated automatically from the partition during runner.setup().
-    classes_to_discover_per_client: Optional[Dict[int, List[int]]] = None
     
-    use_mean_ablation: bool = False
+
     
     # --- FedRS (Restricted Softmax) ---
     use_fedrs: bool = False

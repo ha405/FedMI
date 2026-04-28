@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from circuits.pruning import get_current_sparsity, apply_weight_sparsity
-from circuits.discovery import discover_client_circuit_cached, compute_layer_means, precollect_all_class_samples, is_valid_layer
+from circuits.discovery import discover_client_circuit_cached, precollect_all_class_samples, is_valid_layer
 from circuits.evaluation import (
     evaluate_circuit_cached, evaluate_circuit_necessity_cached,
     extract_sparse_connectivity, filter_connectivity_by_circuit
@@ -66,14 +66,7 @@ class FederatedClient:
         """Evaluate local model on global test set for this client's available classes only.
         Returns {class_id: accuracy_float}.
         """
-        classes = None
-        if self.config.classes_to_discover_per_client:
-            # Robust to int or string keys (from JSON resume)
-            classes = self.config.classes_to_discover_per_client.get(self.client_id) or \
-                      self.config.classes_to_discover_per_client.get(str(self.client_id))
-        
-        if classes is None:
-            classes = self.config.classes_to_analyze or list(range(self.config.num_classes))
+        classes = list(range(self.config.num_classes))
 
         model.eval()
         class_acc = {}
@@ -93,14 +86,9 @@ class FederatedClient:
         return class_acc
 
     def discover_circuits(self, model, evaluation_cache: EvaluationCache):
-        if self.config.classes_to_discover_per_client and self.client_id in self.config.classes_to_discover_per_client:
-            classes_to_analyze = self.config.classes_to_discover_per_client[self.client_id]
-        elif self.config.classes_to_analyze is not None:
-            classes_to_analyze = self.config.classes_to_analyze
-        else:
-            classes_to_analyze = list(range(self.config.num_classes))
+        classes_to_analyze = list(range(self.config.num_classes))
 
-        layer_means = compute_layer_means(model, self.discovery_dataloader, self.config) if self.config.use_mean_ablation else None
+
         physical_connectivity = extract_sparse_connectivity(model)
 
         class_samples = precollect_all_class_samples(
@@ -114,7 +102,7 @@ class FederatedClient:
 
             if tc in class_samples:
                 c_inputs, c_labels = class_samples[tc]
-                circ = discover_client_circuit_cached(model, c_inputs, c_labels, tc, self.config, layer_means=layer_means)
+                circ = discover_client_circuit_cached(model, c_inputs, c_labels, tc, self.config)
             else:
                 circ = {n: [] for n, m in model.named_modules() if is_valid_layer(n, m)}
 
@@ -122,7 +110,7 @@ class FederatedClient:
                 "active_nodes": circ,
                 "connectivity": filter_connectivity_by_circuit(physical_connectivity, circ),
                 "metrics": {
-                    "accuracy": evaluate_circuit_cached(model, evaluation_cache, circ, tc, self.config, layer_means=layer_means),
+                    "accuracy": evaluate_circuit_cached(model, evaluation_cache, circ, tc, self.config),
                     "necessity": evaluate_circuit_necessity_cached(model, evaluation_cache, circ, tc, self.config),
                 }
             }

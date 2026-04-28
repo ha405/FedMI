@@ -14,9 +14,9 @@
     "conv_channels": [32, 64, 128],
     "num_classes": 10,
 
-    "num_clients": 5,
-    "num_rounds": 100,
-    "local_epochs": 5,
+    "num_clients": 3,
+    "num_rounds": 3,
+    "local_epochs": 1,
 
     "partition_method": "iid",
     "dirichlet_alpha": 0.5,

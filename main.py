@@ -168,21 +168,19 @@ class ExperimentRunner:
 
     def _run_analysis(self):
         try:
-            from analysis.visualizer.metrics import MetricsVisualizer
-            from analysis.visualizer.circuit_overlap import CircuitOverlapVisualizer
+            from analysis.visualizer.consistency import ConsistencyVisualizer
             from analysis.plot_results import plot_convergence
 
-            for viz in [MetricsVisualizer]:
-                viz(self.config.output_dir).run()
-
-            CircuitOverlapVisualizer(self.config.output_dir, n_classes=5).run()
+            ConsistencyVisualizer(self.config.output_dir).run()
             plot_convergence(self.config.output_dir)
 
             viz_src = os.path.join("analysis", "visualizer", "fl_visualizer.html")
             if os.path.exists(viz_src):
                 shutil.copy(viz_src, os.path.join(self.config.output_dir, "visualizer.html"))
         except Exception as e:
-            print(f"Analysis warning: {e}")
+            import traceback
+            print(f"Analysis error: {e}")
+            traceback.print_exc()
 
 
 def parse_args():

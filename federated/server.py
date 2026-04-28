@@ -10,9 +10,8 @@ from circuits.evaluation import (
     evaluate_circuit_cached, evaluate_circuit_necessity_cached,
 )
 from circuits.discovery import (
-    discover_client_circuit_cached, compute_layer_means, precollect_all_class_samples, is_valid_layer,
+    discover_client_circuit_cached, precollect_all_class_samples, is_valid_layer,
 )
-
 
 class FederatedServer:
     def __init__(self, global_model, config, class_names, evaluation_cache: EvaluationCache):
@@ -34,19 +33,9 @@ class FederatedServer:
 
         self.global_model.load_state_dict(global_state)
 
-    def _classes_for_client(self, client_id):
-        if self.config.classes_to_discover_per_client:
-            cls = self.config.classes_to_discover_per_client.get(client_id) or \
-                  self.config.classes_to_discover_per_client.get(str(client_id))
-            if cls is not None:
-                return cls
-        if self.config.classes_to_analyze is not None:
-            return self.config.classes_to_analyze
-        return list(range(self.config.num_classes))
-
     def _discover_global(self, client, gm_copy, local_circuits, log_file=None):
-        classes = self._classes_for_client(client.client_id)
-        layer_means = compute_layer_means(gm_copy, client.discovery_dataloader, self.config) if self.config.use_mean_ablation else None
+        classes = list(range(self.config.num_classes))
+
         physical_conn = extract_sparse_connectivity(gm_copy)
         class_samples = precollect_all_class_samples(client.discovery_dataloader, classes, max_per_class=1024, device=self.device)
 
@@ -56,11 +45,11 @@ class FederatedServer:
 
             if tc in class_samples:
                 c_inputs, c_labels = class_samples[tc]
-                circ = discover_client_circuit_cached(gm_copy, c_inputs, c_labels, tc, self.config, layer_means=layer_means)
+                circ = discover_client_circuit_cached(gm_copy, c_inputs, c_labels, tc, self.config)
             else:
                 circ = {n: [] for n, m in gm_copy.named_modules() if is_valid_layer(n, m)}
 
-            acc_global = evaluate_circuit_cached(gm_copy, self.evaluation_cache, circ, tc, self.config, layer_means=layer_means)
+            acc_global = evaluate_circuit_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
             inv_acc = evaluate_circuit_necessity_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
 
             cg_circs[name] = {

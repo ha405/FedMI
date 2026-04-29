@@ -2,12 +2,12 @@
     "_comment": "Default config. Override any field via CLI: python main.py --dataset CIFAR10 --model ResNet --partition dirichlet --alpha 0.3",
     "device": "cuda",
     "seed": 42,
-    "output_dir": "./results/experiment_run",
-    "dataset_name": "MNIST",
+    "output_dir": "./results/cifar_resnet_100_5e_10c",
+    "dataset_name": "CIFAR10",
     "data_root": "./data",
     "batch_size": 256,
     "num_workers": 0,
-    "model_name": "SimpleCNN",
+    "model_name": "ResNet",
     "conv_channels": [
         32,
         64,
@@ -15,7 +15,7 @@
     ],
     "num_classes": 10,
 
-    "num_clients": 5,
+    "num_clients": 10,
     "num_rounds": 100,
     "local_epochs": 5,
 

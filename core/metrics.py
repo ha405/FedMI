@@ -36,13 +36,17 @@ class MetricsTracker:
                   global_class_acc: dict = None,
                   client_train_metrics: dict = None,
                   client_test_metrics: dict = None,
-                  round_circuits: dict = None):
+                  round_circuits: dict = None,
+                  round_time: float = None):
         entry = {
             "round": round_num + 1,
             "global_accuracy": round(global_acc, 4),
             "global_loss": round(global_loss, 6),
             "timestamp": time.time(),
         }
+
+        if round_time is not None:
+            entry["round_time_seconds"] = round(round_time, 1)
 
         if global_class_acc:
             entry["global_class_accuracy"] = {str(k): round(v, 4) for k, v in global_class_acc.items() if v is not None}
@@ -65,17 +69,21 @@ class MetricsTracker:
                 entry["clients"][cid_str]["test_class_accuracy"] = {str(k): v for k, v in class_acc.items()}
 
         if round_circuits:
-            # Extract sufficiency/necessity from round_circuits
-            # Format: round_circuits["clients_local_model"][client_id][class_name]["metrics"]
             entry["circuit_metrics"] = {"local": {}, "global": {}}
+            entry["circuit_sizes"]   = {"local": {}, "global": {}}
             for group, target in [("clients_local_model", "local"), ("clients_global_model", "global")]:
                 for cid_str, class_dict in round_circuits.get(group, {}).items():
                     entry["circuit_metrics"][target][cid_str] = {}
+                    entry["circuit_sizes"][target][cid_str]   = {}
                     for class_name, data in class_dict.items():
                         m = data.get("metrics", {})
                         entry["circuit_metrics"][target][cid_str][class_name] = {
                             "accuracy":  round(m.get("accuracy", 0), 4),
-                            "necessity": round(m.get("necessity", 0), 4)
+                            "necessity": round(m.get("necessity", 0), 4),
+                        }
+                        entry["circuit_sizes"][target][cid_str][class_name] = {
+                            layer: len(nodes)
+                            for layer, nodes in data.get("active_nodes", {}).items()
                         }
 
         self.rounds.append(entry)

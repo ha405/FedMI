@@ -74,8 +74,12 @@ def get_classes_for_client(dataset, indices: List[int]) -> List[int]:
 
 
 def get_dataloader(dataset, indices: List[int], config, shuffle: bool = True) -> DataLoader:
-    return DataLoader(Subset(dataset, indices), batch_size=config.batch_size, shuffle=shuffle, num_workers=config.num_workers)
+    pin = 'cuda' in str(config.device)
+    return DataLoader(Subset(dataset, indices), batch_size=config.batch_size, shuffle=shuffle,
+                      num_workers=config.num_workers, pin_memory=pin)
 
 
 def get_test_dataloader(testset, config) -> DataLoader:
-    return DataLoader(testset, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
+    pin = 'cuda' in str(config.device)
+    return DataLoader(testset, batch_size=config.batch_size, shuffle=False,
+                      num_workers=config.num_workers, pin_memory=pin)

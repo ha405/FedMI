@@ -116,10 +116,9 @@ class ExperimentRunner:
     def run(self):
         print(f"\n{'='*50}\nEXPERIMENT: {self.config.output_dir}\n{'='*50}")
 
-        all_circuits = {}
         start_round = 0
         if self.config.resume:
-            start_round, all_circuits = load_latest_checkpoint(self.global_model, self.config)
+            start_round, _ = load_latest_checkpoint(self.global_model, self.config)
 
         if start_round >= self.config.num_rounds:
             print("Training already complete.")
@@ -128,21 +127,55 @@ class ExperimentRunner:
         log_path = os.path.join(self.dirs["logs"], "training_log.txt")
         final_acc = 0.0
 
+        def _log(msg, f=None):
+            print(msg)
+            if f:
+                f.write(msg + "\n")
+                f.flush()
+
         with open(log_path, "a" if self.config.resume else "w") as log_f:
             for round_num in range(start_round, self.config.num_rounds):
                 t0 = time.time()
-                round_circuits, client_metrics, client_test_metrics = self.server.orchestrate_round(round_num, self.clients, log_file=log_f)
-                all_circuits[f"round_{round_num + 1}"] = round_circuits
 
-                # Global model evaluated on ALL classes for benchmark
+                _log(f"\n{'='*70}", log_f)
+                _log(f"ROUND {round_num + 1}/{self.config.num_rounds}", log_f)
+                _log(f"{'='*70}", log_f)
+
+                round_circuits, client_metrics, client_test_metrics = self.server.orchestrate_round(round_num, self.clients, log_file=log_f)
+
                 acc, loss, class_acc = evaluate_detailed_with_loss(
                     self.global_model, self.evaluation_cache, self.config,
                     log_file=log_f, class_names=self.class_names,
                     title=f"Round {round_num + 1} Global Eval",
-                    active_classes=None, 
+                    active_classes=None,
                 )
                 final_acc = acc
-                print(f"  Round {round_num + 1} | Acc: {acc:.2f}% | Loss: {loss:.4f} | {time.time() - t0:.1f}s")
+                elapsed = time.time() - t0
+                _log(f"\n[Round Summary] Acc: {acc:.2f}%  Loss: {loss:.4f}  Time: {elapsed:.1f}s", log_f)
+
+                _log("\n[Client Training]", log_f)
+                for cid in sorted(client_metrics):
+                    m = client_metrics[cid]
+                    _log(f"  client_{cid} | loss: {m['loss']:.4f} | acc: {m['accuracy']:.2f}%", log_f)
+
+                _log("\n[Client Test Accuracy]", log_f)
+                for cid in sorted(client_test_metrics):
+                    parts = "  ".join(f"cls{c}: {v:.1f}%" for c, v in sorted(client_test_metrics[cid].items()))
+                    _log(f"  client_{cid} | {parts}", log_f)
+
+                for label, group_key in [("Local Model", "clients_local_model"), ("Global Model", "clients_global_model")]:
+                    _log(f"\n[Circuit Metrics — {label}]", log_f)
+                    for cid_str in sorted(round_circuits.get(group_key, {})):
+                        for cls_name, data in sorted(round_circuits[group_key][cid_str].items()):
+                            m = data.get("metrics", {})
+                            sizes = "  ".join(
+                                f"{l}={len(v)}" for l, v in sorted(data.get("active_nodes", {}).items())
+                            )
+                            _log(
+                                f"  {cid_str} | {cls_name:<15} | "
+                                f"suff={m.get('accuracy', 0):6.2f}%  nec={m.get('necessity', 0):6.2f}%  | {sizes}",
+                                log_f
+                            )
 
                 self.tracker.log_round(
                     round_num, acc, loss,
@@ -150,33 +183,50 @@ class ExperimentRunner:
                     client_train_metrics=client_metrics,
                     client_test_metrics=client_test_metrics,
                     round_circuits=round_circuits,
+                    round_time=elapsed,
                 )
                 self.tracker.save()
-                save_checkpoint(self.global_model, round_num + 1, all_circuits, self.config, self.dirs["checkpoints"])
+                save_checkpoint(self.global_model, round_num + 1, self.config, self.dirs["checkpoints"])
                 save_circuits_to_json(round_circuits, os.path.join(self.dirs["circuits"], f"circuits_round_{round_num + 1}.json"))
-                save_circuits_to_json(all_circuits, os.path.join(self.dirs["circuits"], "all_circuits.json"))
 
         self.tracker.save_csv()
         self.run_info.finish(final_accuracy=final_acc)
+        self._save_all_circuits()
         self._run_analysis()
+
+    def _save_all_circuits(self):
+        circuits_dir = self.dirs["circuits"]
+        output_path = os.path.join(circuits_dir, "all_circuits.json")
+        with open(output_path, 'w') as out:
+            out.write('{\n')
+            first = True
+            for r in range(1, self.config.num_rounds + 1):
+                p = os.path.join(circuits_dir, f"circuits_round_{r}.json")
+                if os.path.exists(p):
+                    with open(p) as f:
+                        content = f.read().strip()
+                    if not first:
+                        out.write(',\n')
+                    out.write(f'  "round_{r}": {content}')
+                    first = False
+            out.write('\n}\n')
+        print(f"All circuits saved to {output_path}")
 
     def _run_analysis(self):
         try:
-            from analysis.visualizer.metrics import MetricsVisualizer
-            from analysis.visualizer.circuit_overlap import CircuitOverlapVisualizer
+            from analysis.visualizer.consistency import ConsistencyVisualizer
             from analysis.plot_results import plot_convergence
 
-            for viz in [MetricsVisualizer]:
-                viz(self.config.output_dir).run()
-
-            CircuitOverlapVisualizer(self.config.output_dir, n_classes=5).run()
+            ConsistencyVisualizer(self.config.output_dir).run()
             plot_convergence(self.config.output_dir)
 
             viz_src = os.path.join("analysis", "visualizer", "fl_visualizer.html")
             if os.path.exists(viz_src):
                 shutil.copy(viz_src, os.path.join(self.config.output_dir, "visualizer.html"))
         except Exception as e:
-            print(f"Analysis warning: {e}")
+            import traceback
+            print(f"Analysis error: {e}")
+            traceback.print_exc()
 
 
 def parse_args():

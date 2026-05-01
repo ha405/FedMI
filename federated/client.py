@@ -35,7 +35,7 @@ class FederatedClient:
 
         for _ in range(self.config.local_epochs):
             for inputs, labels in self.dataloader:
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                inputs, labels = inputs.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
                 optimizer.zero_grad()
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)

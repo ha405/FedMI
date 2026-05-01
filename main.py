@@ -17,7 +17,9 @@ logging.getLogger("torch._dynamo").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore", message=".*failed while executing pow_by_natural.*")
 warnings.filterwarnings("ignore", category=UserWarning, module="torch._inductor.utils")
 torch._dynamo.config.recompile_limit = 64
-torch._dynamo.config.suppress_errors = True # Optional: silences Dynamo errors if you just want it to fall back to eager mode silently
+torch._dynamo.config.suppress_errors = True
+torch._inductor.config.max_autotune = False
+torch._inductor.config.triton.autotune_pointwise = False
 
 sys.dont_write_bytecode = True
 sys.path.append(os.getcwd())

@@ -11,6 +11,11 @@ def get_transforms(dataset_name: str) -> transforms.Compose:
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
+    elif dataset_name == "CIFAR10":
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        ])
     return transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))

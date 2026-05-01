@@ -57,7 +57,7 @@ class FederatedServer:
 
             cg_circs = {}
             
-            # Vectorized discovery: 1 call instead of looping
+            # Vectorized discovery
             all_circs = discover_all_classes_cached(gm_copy, class_samples, self.config)
             
             for tc in classes:

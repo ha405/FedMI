@@ -36,7 +36,8 @@ class FederatedClient:
 
     def train(self, global_model):
         # Update compiled model with the global weights
-        self.model.load_state_dict(global_model.state_dict())
+        target_model = getattr(self.model, "_orig_mod", self.model)
+        target_model.load_state_dict(global_model.state_dict())
         self.model.train()
 
         optimizer = optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
@@ -85,8 +86,10 @@ class FederatedClient:
         """
         classes = list(range(self.config.num_classes))
 
+        # Use our persistent compiled model for evaluation
         if model is not self.model:
-            self.model.load_state_dict(model.state_dict())
+            target_model = getattr(self.model, "_orig_mod", self.model)
+            target_model.load_state_dict(model.state_dict())
             
         self.model.eval()
         class_acc = {}
@@ -110,7 +113,8 @@ class FederatedClient:
         classes_to_analyze = list(range(self.config.num_classes))
 
         if model is not self.model:
-            self.model.load_state_dict(model.state_dict())
+            target_model = getattr(self.model, "_orig_mod", self.model)
+            target_model.load_state_dict(model.state_dict())
             
         physical_connectivity = extract_sparse_connectivity(self.model)
 

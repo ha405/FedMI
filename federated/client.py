@@ -14,38 +14,50 @@ from core.data_cache import EvaluationCache
 class FederatedClient:
     def __init__(self, client_id, train_dataloader, discovery_dataloader, config, class_names):
         self.client_id = client_id
-        self.dataloader = train_dataloader
-        self.discovery_dataloader = discovery_dataloader if discovery_dataloader is not None else train_dataloader
         self.config = config
         self.class_names = class_names
         self.device = config.device
+        
+        # Preload train dataloader to GPU memory to avoid PCIe transfers
+        self.dataloader = []
+        for inputs, labels in train_dataloader:
+            self.dataloader.append((inputs.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)))
+            
+        # Pre-collect discovery samples ONCE during init
+        discovery_dl = discovery_dataloader if discovery_dataloader is not None else train_dataloader
+        classes = list(range(config.num_classes))
+        self.class_samples = precollect_all_class_samples(discovery_dl, classes, max_per_class=1024, device=self.device)
 
     def train(self, model):
         model.train()
         model.to(self.device)
+        
+        # Fuse CUDA kernels to bypass Python GIL overhead
+        if hasattr(torch, 'compile') and 'cuda' in str(self.device):
+            model = torch.compile(model)
 
         optimizer = optim.Adam(model.parameters(), lr=self.config.learning_rate)
         criterion = nn.CrossEntropyLoss()
 
         total_steps = len(self.dataloader) * self.config.local_epochs
         current_step = 0
-        running_loss = 0.0
-        correct = 0
+        # Accumulate metrics on GPU to prevent .item() synchronization halts
+        running_loss = torch.tensor(0.0, device=self.device)
+        correct = torch.tensor(0, device=self.device)
         total = 0
 
         for _ in range(self.config.local_epochs):
             for inputs, labels in self.dataloader:
-                inputs, labels = inputs.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
                 optimizer.zero_grad()
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
 
-                running_loss += loss.item()
+                running_loss += loss.detach()
                 _, predicted = outputs.max(1)
                 total += labels.size(0)
-                correct += predicted.eq(labels).sum().item()
+                correct += predicted.eq(labels).sum()
 
                 if self.config.train_mode == 'sparse':
                     apply_weight_sparsity(model, get_current_sparsity(
@@ -58,8 +70,8 @@ class FederatedClient:
         if self.config.train_mode == 'sparse':
             apply_weight_sparsity(model, self.config.target_sparsity)
 
-        avg_loss = running_loss / current_step if current_step > 0 else 0.0
-        train_acc = 100.0 * correct / total if total > 0 else 0.0
+        avg_loss = running_loss.item() / current_step if current_step > 0 else 0.0
+        train_acc = 100.0 * correct.item() / total if total > 0 else 0.0
         return model, {"loss": avg_loss, "accuracy": train_acc}
 
     def evaluate_on_test(self, model, cache: EvaluationCache) -> dict:
@@ -75,33 +87,27 @@ class FederatedClient:
                 inputs, labels = cache.get_class_data(c)
                 if inputs.shape[0] == 0:
                     continue
-                correct, total = 0, 0
+                correct = torch.tensor(0, device=self.device)
+                total = 0
                 for i in range(0, inputs.shape[0], self.config.batch_size):
                     out = model(inputs[i:i + self.config.batch_size])
                     _, pred = torch.max(out, 1)
                     lbl = labels[i:i + self.config.batch_size]
                     total += lbl.size(0)
-                    correct += (pred == lbl).sum().item()
-                class_acc[c] = round(100.0 * correct / total, 4) if total > 0 else 0.0
+                    correct += (pred == lbl).sum()
+                class_acc[c] = round(100.0 * correct.item() / total, 4) if total > 0 else 0.0
         return class_acc
 
     def discover_circuits(self, model, evaluation_cache: EvaluationCache):
         classes_to_analyze = list(range(self.config.num_classes))
-
-
         physical_connectivity = extract_sparse_connectivity(model)
-
-        class_samples = precollect_all_class_samples(
-            self.discovery_dataloader, classes_to_analyze,
-            max_per_class=1024, device=self.device
-        )
 
         client_circuits = {}
         for tc in classes_to_analyze:
             name = self.class_names[tc] if self.class_names and 0 <= tc < len(self.class_names) else str(tc)
 
-            if tc in class_samples:
-                c_inputs, c_labels = class_samples[tc]
+            if tc in self.class_samples:
+                c_inputs, c_labels = self.class_samples[tc]
                 circ = discover_client_circuit_cached(model, c_inputs, c_labels, tc, self.config)
             else:
                 circ = {n: [] for n, m in model.named_modules() if is_valid_layer(n, m)}

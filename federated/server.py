@@ -21,22 +21,29 @@ class FederatedServer:
         self.class_names = class_names
         self.device = config.device
         self.evaluation_cache = evaluation_cache
-        # One CUDA stream per client so GPU work from different clients can overlap.
         self.client_streams = (
             [torch.cuda.Stream() for _ in range(config.num_clients)]
             if 'cuda' in str(config.device) else []
         )
 
+    def _clone_global_model(self):
+        from core.models import get_model
+        model_copy = get_model(self.config)
+        model_copy.load_state_dict(self.global_model.state_dict())
+        model_copy.to(self.config.device)
+        return model_copy
+
     def aggregate(self, client_models):
         weights = 1.0 / len(client_models)
-        target_device = next(self.global_model.parameters()).device
-        # Aggregate on CPU to avoid per-parameter PCIe round trips, then move once.
-        cpu_states = [m.state_dict() for m in client_models]
+        target_device = self.config.device
+        
+        client_state_dicts = [m.state_dict() for m in client_models]
         new_state = {}
-        for key in cpu_states[0]:
-            acc = cpu_states[0][key].cpu().float().mul_(weights)
-            for sd in cpu_states[1:]:
-                acc.add_(sd[key].cpu().float(), alpha=weights)
+        for key in client_state_dicts[0]:
+            # Aggregate purely on GPU to eliminate PCIe transfers
+            acc = client_state_dicts[0][key].clone().float().mul_(weights)
+            for sd in client_state_dicts[1:]:
+                acc.add_(sd[key].float(), alpha=weights)
             new_state[key] = acc.to(target_device)
         self.global_model.load_state_dict(new_state)
 
@@ -46,7 +53,7 @@ class FederatedServer:
             classes = list(range(self.config.num_classes))
 
             physical_conn = extract_sparse_connectivity(gm_copy)
-            class_samples = precollect_all_class_samples(client.discovery_dataloader, classes, max_per_class=1024, device=self.device)
+            class_samples = client.class_samples
 
             cg_circs = {}
             for tc in classes:
@@ -89,7 +96,7 @@ class FederatedServer:
             stream = self.client_streams[i] if self.client_streams else None
             ctx = torch.cuda.stream(stream) if stream is not None else nullcontext()
             with ctx:
-                model_copy = copy.deepcopy(self.global_model)
+                model_copy = self._clone_global_model()
                 trained_model, metrics = client.train(model_copy)
                 test_metrics = client.evaluate_on_test(trained_model, self.evaluation_cache)
                 if stream is not None:
@@ -112,12 +119,12 @@ class FederatedServer:
 
         def _aggregate():
             weights = 1.0 / len(client_state_dicts)
-            target_device = next(self.global_model.parameters()).device
+            target_device = self.config.device
             new_state = {}
             for key in client_state_dicts[0]:
-                acc = client_state_dicts[0][key].cpu().float().mul_(weights)
+                acc = client_state_dicts[0][key].clone().float().mul_(weights)
                 for sd in client_state_dicts[1:]:
-                    acc.add_(sd[key].cpu().float(), alpha=weights)
+                    acc.add_(sd[key].float(), alpha=weights)
                 new_state[key] = acc.to(target_device)
             self.global_model.load_state_dict(new_state)
 
@@ -143,7 +150,7 @@ class FederatedServer:
                 ex.submit(
                     self._discover_global,
                     client,
-                    copy.deepcopy(self.global_model),
+                    self._clone_global_model(),
                     round_circuits["clients_local_model"].get(f"client_{i}", {}),
                     self.client_streams[i] if self.client_streams else None,
                     log_file,

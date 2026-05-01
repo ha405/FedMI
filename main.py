@@ -195,6 +195,7 @@ def parse_args():
     parser.add_argument("--batch_size",    type=int)
     parser.add_argument("--lr",            type=float)
     parser.add_argument("--train_mode",    type=str)
+    parser.add_argument("--sparsity",      type=float)
     parser.add_argument("--resume",        action="store_true")
     return parser.parse_args()
 
@@ -212,6 +213,7 @@ def update_config(config, args):
         "model": "model_name", "num_rounds": "num_rounds", "num_clients": "num_clients",
         "local_epochs": "local_epochs", "batch_size": "batch_size",
         "lr": "learning_rate", "train_mode": "train_mode",
+        "sparsity": "target_sparsity"
     }
     for arg_name, cfg_name in mapping.items():
         val = getattr(args, arg_name, None)

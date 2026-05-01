@@ -11,7 +11,7 @@ from circuits.evaluation import (
     evaluate_circuit_cached, evaluate_circuit_necessity_cached,
 )
 from circuits.discovery import (
-    discover_client_circuit_cached, precollect_all_class_samples, is_valid_layer,
+    discover_all_classes_cached, precollect_all_class_samples, is_valid_layer,
 )
 
 class FederatedServer:
@@ -56,14 +56,14 @@ class FederatedServer:
             class_samples = client.class_samples
 
             cg_circs = {}
+            
+            # Vectorized discovery: 1 call instead of looping
+            all_circs = discover_all_classes_cached(gm_copy, class_samples, self.config)
+            
             for tc in classes:
                 name = self.class_names[tc] if self.class_names and 0 <= tc < len(self.class_names) else str(tc)
 
-                if tc in class_samples:
-                    c_inputs, c_labels = class_samples[tc]
-                    circ = discover_client_circuit_cached(gm_copy, c_inputs, c_labels, tc, self.config)
-                else:
-                    circ = {n: [] for n, m in gm_copy.named_modules() if is_valid_layer(n, m)}
+                circ = all_circs[tc]
 
                 acc_global = evaluate_circuit_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
                 inv_acc = evaluate_circuit_necessity_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)

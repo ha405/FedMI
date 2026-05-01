@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from circuits.pruning import get_current_sparsity, apply_weight_sparsity
-from circuits.discovery import discover_client_circuit_cached, precollect_all_class_samples, is_valid_layer
+from circuits.discovery import discover_all_classes_cached, precollect_all_class_samples, is_valid_layer
 from circuits.evaluation import (
     evaluate_circuit_cached, evaluate_circuit_necessity_cached,
     extract_sparse_connectivity, filter_connectivity_by_circuit
@@ -125,14 +125,14 @@ class FederatedClient:
         physical_connectivity = extract_sparse_connectivity(self.model)
 
         client_circuits = {}
+        
+        # Vectorized discovery: 1 call instead of looping
+        all_circs = discover_all_classes_cached(self.model, self.class_samples, self.config)
+        
         for tc in classes_to_analyze:
             name = self.class_names[tc] if self.class_names and 0 <= tc < len(self.class_names) else str(tc)
 
-            if tc in self.class_samples:
-                c_inputs, c_labels = self.class_samples[tc]
-                circ = discover_client_circuit_cached(self.model, c_inputs, c_labels, tc, self.config)
-            else:
-                circ = {n: [] for n, m in model.named_modules() if is_valid_layer(n, m)}
+            circ = all_circs[tc]
 
             client_circuits[name] = {
                 "active_nodes": circ,

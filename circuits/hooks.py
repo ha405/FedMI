@@ -40,4 +40,30 @@ def get_inverse_mask_hook(indices, device):
         return output * mask
     return hook
 
-
+def get_multi_class_gate_hook(gate_param):
+    """
+    Vectorized Gate Hook for parallel circuit discovery.
+    gate_param: Tensor of shape [num_classes, channels]
+    """
+    def hook(module, input, output):
+        labels = getattr(module, 'current_labels', None)
+        if labels is None:
+            return output
+            
+        # [Math]
+        # labels has shape [batch_size]
+        # gate_param[labels] selects the specific gate row for each sample in the batch.
+        # This results in a batch_mask of shape [batch_size, channels]
+        batch_mask = binary_gate(gate_param[labels])
+        
+        if output.dim() == 4:
+            # output has shape [batch_size, channels, H, W]
+            # We reshape batch_mask to [batch_size, channels, 1, 1] so it broadcasts over H and W
+            return output * batch_mask.view(batch_mask.size(0), batch_mask.size(1), 1, 1)
+        elif output.dim() == 2:
+            # output has shape [batch_size, channels]
+            # batch_mask is already [batch_size, channels]
+            return output * batch_mask
+            
+        return output
+    return hook

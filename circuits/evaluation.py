@@ -111,10 +111,14 @@ def evaluate_detailed_with_loss(model, cache: EvaluationCache, config,
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            for i in range(labels.size(0)):
-                lbl = labels[i].item()
-                class_correct[lbl] += (predicted[i] == labels[i]).item()
-                class_total[lbl] += 1
+            # Vectorized sample-by-sample analysis
+            is_correct = (predicted == labels)
+            correct_counts = torch.bincount(labels[is_correct], minlength=num_classes)
+            total_counts = torch.bincount(labels, minlength=num_classes)
+            
+            for c in range(num_classes):
+                class_correct[c] += correct_counts[c].item()
+                class_total[c] += total_counts[c].item()
 
     overall_acc = 100 * correct / total if total > 0 else 0.0
     avg_loss    = running_loss / n_batches if n_batches > 0 else 0.0

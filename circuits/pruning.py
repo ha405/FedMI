@@ -19,15 +19,16 @@ def apply_weight_sparsity(model, sparsity_level=0.90, min_alive=4):
                 mask = (param.abs() >= threshold).float()
 
                 if 'conv' in name and param.dim() == 4:
-                    for i in range(param.shape[0]):
-                        filter_weights = param[i]
-                        alive_count = (mask[i] > 0).sum().item()
-                        
-                        if alive_count < min_alive:
-                            top_k_vals = torch.topk(filter_weights.abs().flatten(), min_alive).values
-                            if top_k_vals.numel() > 0:
-                                revival_threshold = top_k_vals[-1]
-                                revival_mask = (filter_weights.abs() >= revival_threshold).float()
-                                mask[i] = torch.max(mask[i], revival_mask)
+                    # Vectorized revival of filters
+                    alive_per_filter = mask.view(param.shape[0], -1).sum(dim=1)
+                    dead_filters = (alive_per_filter < min_alive).nonzero(as_tuple=True)[0]
+                    
+                    if dead_filters.numel() > 0:
+                        # Extract only weights for filters
+                        flat_dead = param[dead_filters].view(dead_filters.numel(), -1).abs()
+                        # Get the threshold for the top min_alive weights
+                        revival_thresholds = torch.topk(flat_dead, min_alive, dim=1).values[:, -1]
+                        revival_mask = (param[dead_filters].abs() >= revival_thresholds.view(-1, 1, 1, 1)).float()
+                        mask[dead_filters] = torch.max(mask[dead_filters], revival_mask)
                 
                 param.data.mul_(mask)

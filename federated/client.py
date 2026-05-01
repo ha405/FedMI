@@ -23,25 +23,28 @@ class FederatedClient:
         for inputs, labels in train_dataloader:
             self.dataloader.append((inputs.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)))
             
-        # Pre-collect discovery samples ONCE during init
+        # Pre-collect discovery samples
         discovery_dl = discovery_dataloader if discovery_dataloader is not None else train_dataloader
         classes = list(range(config.num_classes))
         self.class_samples = precollect_all_class_samples(discovery_dl, classes, max_per_class=1024, device=self.device)
 
-    def train(self, model):
-        model.train()
-        model.to(self.device)
-        
-        # Fuse CUDA kernels to bypass Python GIL overhead
+        # Persistent model to avoid repeated torch.compile overhead
+        from core.models import get_model
+        self.model = get_model(self.config).to(self.device)
         if hasattr(torch, 'compile') and 'cuda' in str(self.device):
-            model = torch.compile(model)
+            self.model = torch.compile(self.model, dynamic=True)
 
-        optimizer = optim.Adam(model.parameters(), lr=self.config.learning_rate)
+    def train(self, global_model):
+        # Update compiled model with the global weights
+        self.model.load_state_dict(global_model.state_dict())
+        self.model.train()
+
+        optimizer = optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
         criterion = nn.CrossEntropyLoss()
 
         total_steps = len(self.dataloader) * self.config.local_epochs
         current_step = 0
-        # Accumulate metrics on GPU to prevent .item() synchronization halts
+
         running_loss = torch.tensor(0.0, device=self.device)
         correct = torch.tensor(0, device=self.device)
         total = 0
@@ -49,7 +52,7 @@ class FederatedClient:
         for _ in range(self.config.local_epochs):
             for inputs, labels in self.dataloader:
                 optimizer.zero_grad()
-                outputs = model(inputs)
+                outputs = self.model(inputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
@@ -60,7 +63,7 @@ class FederatedClient:
                 correct += predicted.eq(labels).sum()
 
                 if self.config.train_mode == 'sparse':
-                    apply_weight_sparsity(model, get_current_sparsity(
+                    apply_weight_sparsity(self.model, get_current_sparsity(
                         current_step=current_step,
                         total_steps=total_steps,
                         final_sparsity=self.config.target_sparsity
@@ -68,11 +71,13 @@ class FederatedClient:
                 current_step += 1
 
         if self.config.train_mode == 'sparse':
-            apply_weight_sparsity(model, self.config.target_sparsity)
+            apply_weight_sparsity(self.model, self.config.target_sparsity)
 
         avg_loss = running_loss.item() / current_step if current_step > 0 else 0.0
         train_acc = 100.0 * correct.item() / total if total > 0 else 0.0
-        return model, {"loss": avg_loss, "accuracy": train_acc}
+        
+        # Return the uncompiled model to avoid '_orig_mod.' prefixes in state_dict
+        return getattr(self.model, "_orig_mod", self.model), {"loss": avg_loss, "accuracy": train_acc}
 
     def evaluate_on_test(self, model, cache: EvaluationCache) -> dict:
         """Evaluate local model on global test set for this client's available classes only.
@@ -80,7 +85,10 @@ class FederatedClient:
         """
         classes = list(range(self.config.num_classes))
 
-        model.eval()
+        if model is not self.model:
+            self.model.load_state_dict(model.state_dict())
+            
+        self.model.eval()
         class_acc = {}
         with torch.no_grad():
             for c in classes:
@@ -90,7 +98,7 @@ class FederatedClient:
                 correct = torch.tensor(0, device=self.device)
                 total = 0
                 for i in range(0, inputs.shape[0], self.config.batch_size):
-                    out = model(inputs[i:i + self.config.batch_size])
+                    out = self.model(inputs[i:i + self.config.batch_size])
                     _, pred = torch.max(out, 1)
                     lbl = labels[i:i + self.config.batch_size]
                     total += lbl.size(0)
@@ -100,7 +108,11 @@ class FederatedClient:
 
     def discover_circuits(self, model, evaluation_cache: EvaluationCache):
         classes_to_analyze = list(range(self.config.num_classes))
-        physical_connectivity = extract_sparse_connectivity(model)
+
+        if model is not self.model:
+            self.model.load_state_dict(model.state_dict())
+            
+        physical_connectivity = extract_sparse_connectivity(self.model)
 
         client_circuits = {}
         for tc in classes_to_analyze:
@@ -108,7 +120,7 @@ class FederatedClient:
 
             if tc in self.class_samples:
                 c_inputs, c_labels = self.class_samples[tc]
-                circ = discover_client_circuit_cached(model, c_inputs, c_labels, tc, self.config)
+                circ = discover_client_circuit_cached(self.model, c_inputs, c_labels, tc, self.config)
             else:
                 circ = {n: [] for n, m in model.named_modules() if is_valid_layer(n, m)}
 

@@ -33,6 +33,12 @@ class FederatedClient:
         self.model = get_model(self.config).to(self.device)
         if hasattr(torch, 'compile') and 'cuda' in str(self.device):
             self.model = torch.compile(self.model, dynamic=True)
+            try:
+                with torch.no_grad():
+                    dummy_input = torch.randn(1, 3, 32, 32).to(self.device)
+                    self.model(dummy_input)
+            except Exception:
+                pass 
 
     def train(self, global_model):
         # Update compiled model with the global weights

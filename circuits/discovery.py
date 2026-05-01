@@ -68,14 +68,16 @@ def discover_client_circuit_cached(model, class_inputs: torch.Tensor, class_labe
 
     gate_params, hooks, layers = {}, [], []
     for name, module in model.named_modules():
-        if is_valid_layer(name, module):
-            layers.append(name)
+        # Strip '_orig_mod.' prefix if model is compiled
+        clean_name = name.replace("_orig_mod.", "")
+        if is_valid_layer(clean_name, module):
+            layers.append(clean_name)
             if isinstance(module, nn.Conv2d):
-                gate_params[name] = nn.Parameter(torch.ones(1, module.out_channels, 1, 1).to(device) * 2.0)
+                gate_params[clean_name] = nn.Parameter(torch.ones(1, module.out_channels, 1, 1).to(device) * 2.0)
             else:
-                gate_params[name] = nn.Parameter(torch.ones(module.out_features).to(device) * 2.0)
+                gate_params[clean_name] = nn.Parameter(torch.ones(module.out_features).to(device) * 2.0)
 
-            hooks.append(module.register_forward_hook(get_gate_hook(gate_params[name])))
+            hooks.append(module.register_forward_hook(get_gate_hook(gate_params[clean_name])))
 
     optimizer = optim.Adam(gate_params.values(), lr=config.gate_lr)
 

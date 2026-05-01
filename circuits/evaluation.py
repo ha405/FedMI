@@ -144,14 +144,16 @@ def extract_sparse_connectivity(model):
     from .discovery import is_valid_layer
     connectivity = {}
     for name, module in model.named_modules():
-        if not is_valid_layer(name, module):
+        # Strip '_orig_mod.' prefix if model is compiled
+        clean_name = name.replace("_orig_mod.", "")
+        if not is_valid_layer(clean_name, module):
             continue
         if isinstance(module, nn.Conv2d):
             w = module.weight.detach().cpu()
-            connectivity[name] = torch.nonzero(w.abs().sum(dim=(2, 3)) > 0, as_tuple=False).tolist()
+            connectivity[clean_name] = torch.nonzero(w.abs().sum(dim=(2, 3)) > 0, as_tuple=False).tolist()
         elif isinstance(module, nn.Linear):
             w = module.weight.detach().cpu()
-            connectivity[name] = torch.nonzero(w.abs() > 0, as_tuple=False).tolist()
+            connectivity[clean_name] = torch.nonzero(w.abs() > 0, as_tuple=False).tolist()
     return connectivity
 
 

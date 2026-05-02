@@ -8,10 +8,7 @@ def get_current_sparsity(current_step, total_steps, final_sparsity, anneal_frac=
         return final_sparsity
 
 def apply_weight_sparsity(model, sparsity_level=0.90, min_alive=4):
-    exclude_terms = [
-        'patch_embed', 'head', 'classifier', 'embed', 'fc', 
-        'bn', 'bias', 'pool'                               
-    ]
+    exclude_terms = ["bn1.", "fc.", ".bn1.", ".bn2.", ".downsample.0.weight", ".downsample.1."]
     with torch.no_grad():
         for name, param in model.named_parameters():
             if any(term in name for term in exclude_terms):

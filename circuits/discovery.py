@@ -8,11 +8,10 @@ from .hooks import get_gate_hook, get_multi_class_gate_hook
 def is_valid_layer(name, module):
     if not isinstance(module, (nn.Conv2d, nn.Linear)):
         return False
-    # Exclude typical useless layers and classification heads
-    exclude_terms = ['patch_embed', 'head', 'classifier', 'embed']
+
+    # Exclude classifier/head layers, but keep stem convolutions if applicable
+    exclude_terms = ['fc', 'downsample', 'patch_embed', 'head', 'classifier', 'embed']
     if any(term in name for term in exclude_terms):
-        return False
-    if name == 'fc': # typical resnet head
         return False
     return True
 

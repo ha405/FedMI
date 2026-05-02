@@ -15,12 +15,13 @@ from circuits.discovery import (
 )
 
 class FederatedServer:
-    def __init__(self, global_model, config, class_names, evaluation_cache: EvaluationCache):
+    def __init__(self, global_model, config, class_names, evaluation_cache: EvaluationCache, global_class_samples: dict):
         self.global_model = global_model
         self.config = config
         self.class_names = class_names
         self.device = config.device
         self.evaluation_cache = evaluation_cache
+        self.global_class_samples = global_class_samples
         self.client_streams = (
             [torch.cuda.Stream() for _ in range(config.num_clients)]
             if 'cuda' in str(config.device) else []
@@ -47,41 +48,33 @@ class FederatedServer:
             new_state[key] = acc.to(target_device)
         self.global_model.load_state_dict(new_state)
 
-    def _discover_global(self, client, gm_copy, local_circuits, stream=None, log_file=None):
-        ctx = torch.cuda.stream(stream) if stream is not None else nullcontext()
-        with ctx:
-            classes = list(range(self.config.num_classes))
+    def _discover_global_once(self, log_file=None):
+        gm_copy = self._clone_global_model()
+        classes = list(range(self.config.num_classes))
+        physical_conn = extract_sparse_connectivity(gm_copy)
+        
+        cg_circs = {}
+        # Vectorized discovery on global shared dataset
+        all_circs = discover_all_classes_cached(gm_copy, self.global_class_samples, self.config)
+        
+        for tc in classes:
+            name = self.class_names[tc] if self.class_names and 0 <= tc < len(self.class_names) else str(tc)
+            circ = all_circs[tc]
 
-            physical_conn = extract_sparse_connectivity(gm_copy)
-            class_samples = client.class_samples
+            acc_global = evaluate_circuit_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
+            inv_acc = evaluate_circuit_necessity_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
 
-            cg_circs = {}
-            
-            # Vectorized discovery
-            all_circs = discover_all_classes_cached(gm_copy, class_samples, self.config)
-            
-            for tc in classes:
-                name = self.class_names[tc] if self.class_names and 0 <= tc < len(self.class_names) else str(tc)
-
-                circ = all_circs[tc]
-
-                acc_global = evaluate_circuit_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
-                inv_acc = evaluate_circuit_necessity_cached(gm_copy, self.evaluation_cache, circ, tc, self.config)
-
-                cg_circs[name] = {
-                    "active_nodes": circ,
-                    "connectivity": filter_connectivity_by_circuit(physical_conn, circ),
-                    "metrics": {
-                        "accuracy": acc_global,
-                        "necessity": inv_acc,
-                    }
+            cg_circs[name] = {
+                "active_nodes": circ,
+                "connectivity": filter_connectivity_by_circuit(physical_conn, circ),
+                "metrics": {
+                    "accuracy": acc_global,
+                    "necessity": inv_acc,
                 }
-                print(f"    [C{client.client_id}|{name}] Global Acc: {acc_global:.2f}% | Nec: {inv_acc:.2f}%")
+            }
+            print(f"    [Global Model | {name}] Acc: {acc_global:.2f}% | Nec: {inv_acc:.2f}%")
 
-            if stream is not None:
-                stream.synchronize()
-
-        return client.client_id, cg_circs
+        return cg_circs
 
     def orchestrate_round(self, round_num, clients: list, log_file=None):
         print(f"\n--- Round {round_num + 1}/{self.config.num_rounds} ---")
@@ -132,7 +125,7 @@ class FederatedServer:
             stream = self.client_streams[i] if self.client_streams else None
             ctx = torch.cuda.stream(stream) if stream is not None else nullcontext()
             with ctx:
-                result = client.discover_circuits(model, self.evaluation_cache)
+                result = client.discover_circuits(model, self.evaluation_cache, self.global_class_samples)
                 if stream is not None:
                     stream.synchronize()
             return i, result
@@ -144,20 +137,10 @@ class FederatedServer:
                 round_circuits["clients_local_model"][f"client_{i}"] = circs
             agg_future.result()
 
-        # Phase 3: global discovery in parallel, each client on its own stream.
-        with ThreadPoolExecutor(max_workers=n) as ex:
-            futures = {
-                ex.submit(
-                    self._discover_global,
-                    client,
-                    self._clone_global_model(),
-                    round_circuits["clients_local_model"].get(f"client_{i}", {}),
-                    self.client_streams[i] if self.client_streams else None,
-                    log_file,
-                ): i
-                for i, client in enumerate(clients)
-            }
-            for cid, cg_circs in [f.result() for f in as_completed(futures)]:
-                round_circuits["clients_global_model"][f"client_{cid}"] = cg_circs
+        # Phase 3: global discovery ONCE centrally.
+        global_circs = self._discover_global_once(log_file)
+        # Duplicate to all clients so downstream visualization scripts work seamlessly
+        for i in range(n):
+            round_circuits["clients_global_model"][f"client_{i}"] = global_circs
 
         return round_circuits, client_train_metrics, client_test_metrics

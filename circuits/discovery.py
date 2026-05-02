@@ -9,7 +9,6 @@ def is_valid_layer(name, module):
     if not isinstance(module, (nn.Conv2d, nn.Linear)):
         return False
 
-    # Exclude classifier/head layers, but keep stem convolutions if applicable
     exclude_terms = ['fc', 'downsample', 'patch_embed', 'head', 'classifier', 'embed']
     if any(term in name for term in exclude_terms):
         return False

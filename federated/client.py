@@ -12,58 +12,18 @@ from core.data_cache import EvaluationCache
 
 
 class FederatedClient:
-    def __init__(self, client_id, train_dataloader, discovery_dataloader, config, class_names):
+    def __init__(self, client_id, train_dataloader, config, class_names):
         self.client_id = client_id
         self.config = config
         self.class_names = class_names
         self.device = config.device
         
         # Preload train dataloader to GPU memory to avoid PCIe transfers
-        # and simultaneously collect discovery samples to avoid a separate loop
         self.dataloader = []
-        classes = list(range(config.num_classes))
-        max_per_class = 1024
-        
-        class_inputs = {c: [] for c in classes}
-        class_labels = {c: [] for c in classes}
-        counts = {c: 0 for c in classes}
-
         for inputs, labels in train_dataloader:
             inputs = inputs.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
             self.dataloader.append((inputs, labels))
-            
-            for c in classes:
-                if counts[c] < max_per_class:
-                    mask = (labels == c)
-                    if mask.any():
-                        class_inputs[c].append(inputs[mask])
-                        class_labels[c].append(labels[mask])
-                        counts[c] += mask.sum().item()
-
-        # To complete num_samples, refer to train set in general 
-        if discovery_dataloader is not None and any(counts[c] < max_per_class for c in classes):
-            for b_inputs, b_labels in discovery_dataloader:
-                b_inputs = b_inputs.to(self.device, non_blocking=True)
-                b_labels = b_labels.to(self.device, non_blocking=True)
-                for c in classes:
-                    if counts[c] < max_per_class:
-                        mask = (b_labels == c)
-                        if mask.any():
-                            class_inputs[c].append(b_inputs[mask])
-                            class_labels[c].append(b_labels[mask])
-                            counts[c] += mask.sum().item()
-                if all(counts[c] >= max_per_class for c in classes):
-                    break
-
-        # Ensure discovery data is preloaded and isn't loaded again and again
-        self.class_samples = {}
-        for c in classes:
-            if class_inputs[c]:
-                self.class_samples[c] = (
-                    torch.cat(class_inputs[c])[:max_per_class],
-                    torch.cat(class_labels[c])[:max_per_class]
-                )
 
         # Persistent model to avoid repeated torch.compile overhead
         from core.models import get_model
@@ -91,6 +51,8 @@ class FederatedClient:
 
         for _ in range(self.config.local_epochs):
             for inputs, labels in self.dataloader:
+                if inputs.size(0) <= 1:
+                    continue
                 optimizer.zero_grad()
                 outputs = self.model(inputs)
                 loss = criterion(outputs, labels)
@@ -148,7 +110,7 @@ class FederatedClient:
                 class_acc[c] = round(100.0 * correct.item() / total, 4) if total > 0 else 0.0
         return class_acc
 
-    def discover_circuits(self, model, evaluation_cache: EvaluationCache):
+    def discover_circuits(self, model, evaluation_cache: EvaluationCache, global_class_samples: dict):
         classes_to_analyze = list(range(self.config.num_classes))
 
         if model is not self.model:
@@ -159,8 +121,8 @@ class FederatedClient:
 
         client_circuits = {}
         
-        # Vectorized discovery: 1 call instead of looping
-        all_circs = discover_all_classes_cached(self.model, self.class_samples, self.config)
+        # Vectorized discovery using the global shared dataset
+        all_circs = discover_all_classes_cached(self.model, global_class_samples, self.config)
         
         for tc in classes_to_analyze:
             name = self.class_names[tc] if self.class_names and 0 <= tc < len(self.class_names) else str(tc)

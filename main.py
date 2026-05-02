@@ -104,6 +104,19 @@ class ExperimentRunner:
 
         global_discovery_idx = [idx for indices in class_to_discovery_idx.values() for idx in indices]
 
+        # Build global discovery samples ONCE
+        from circuits.discovery import precollect_all_class_samples
+        discovery_loader = get_dataloader(trainset, global_discovery_idx, self.config) if global_discovery_idx else None
+        if discovery_loader is not None:
+            self.global_class_samples = precollect_all_class_samples(
+                discovery_loader, 
+                classes=list(range(self.config.num_classes)), 
+                max_per_class=1024, 
+                device=self.config.device
+            )
+        else:
+            self.global_class_samples = {}
+
         self.clients = []
         for i, indices in enumerate(client_indices):
             if not indices:
@@ -111,7 +124,6 @@ class ExperimentRunner:
             self.clients.append(FederatedClient(
                 i,
                 get_dataloader(trainset, indices, self.config),
-                get_dataloader(trainset, global_discovery_idx, self.config) if global_discovery_idx else None,
                 self.config,
                 self.class_names,
             ))
@@ -119,7 +131,7 @@ class ExperimentRunner:
         self.global_model = get_model(self.config)
         torch.save(self.global_model.state_dict(), os.path.join(self.dirs["checkpoints"], "initialization.pt"))
 
-        self.server = FederatedServer(self.global_model, self.config, self.class_names, self.evaluation_cache)
+        self.server = FederatedServer(self.global_model, self.config, self.class_names, self.evaluation_cache, self.global_class_samples)
 
         self.tracker = MetricsTracker(self.config.output_dir)
         if self.config.resume:

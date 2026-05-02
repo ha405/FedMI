@@ -19,26 +19,59 @@ class FederatedClient:
         self.device = config.device
         
         # Preload train dataloader to GPU memory to avoid PCIe transfers
+        # and simultaneously collect discovery samples to avoid a separate loop
         self.dataloader = []
-        for inputs, labels in train_dataloader:
-            self.dataloader.append((inputs.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)))
-            
-        # Pre-collect discovery samples
-        discovery_dl = discovery_dataloader if discovery_dataloader is not None else train_dataloader
         classes = list(range(config.num_classes))
-        self.class_samples = precollect_all_class_samples(discovery_dl, classes, max_per_class=1024, device=self.device)
+        max_per_class = 1024
+        
+        class_inputs = {c: [] for c in classes}
+        class_labels = {c: [] for c in classes}
+        counts = {c: 0 for c in classes}
+
+        for inputs, labels in train_dataloader:
+            inputs = inputs.to(self.device, non_blocking=True)
+            labels = labels.to(self.device, non_blocking=True)
+            self.dataloader.append((inputs, labels))
+            
+            for c in classes:
+                if counts[c] < max_per_class:
+                    mask = (labels == c)
+                    if mask.any():
+                        class_inputs[c].append(inputs[mask])
+                        class_labels[c].append(labels[mask])
+                        counts[c] += mask.sum().item()
+
+        # To complete num_samples, refer to train set in general 
+        if discovery_dataloader is not None and any(counts[c] < max_per_class for c in classes):
+            for b_inputs, b_labels in discovery_dataloader:
+                b_inputs = b_inputs.to(self.device, non_blocking=True)
+                b_labels = b_labels.to(self.device, non_blocking=True)
+                for c in classes:
+                    if counts[c] < max_per_class:
+                        mask = (b_labels == c)
+                        if mask.any():
+                            class_inputs[c].append(b_inputs[mask])
+                            class_labels[c].append(b_labels[mask])
+                            counts[c] += mask.sum().item()
+                if all(counts[c] >= max_per_class for c in classes):
+                    break
+
+        # Ensure discovery data is preloaded and isn't loaded again and again
+        self.class_samples = {}
+        for c in classes:
+            if class_inputs[c]:
+                self.class_samples[c] = (
+                    torch.cat(class_inputs[c])[:max_per_class],
+                    torch.cat(class_labels[c])[:max_per_class]
+                )
 
         # Persistent model to avoid repeated torch.compile overhead
         from core.models import get_model
         self.model = get_model(self.config).to(self.device)
-        if hasattr(torch, 'compile') and 'cuda' in str(self.device):
-            self.model = torch.compile(self.model, dynamic=True)
-            try:
-                with torch.no_grad():
-                    dummy_input = torch.randn(1, 3, 32, 32).to(self.device)
-                    self.model(dummy_input)
-            except Exception:
-                pass 
+        # self.model = torch.compile(self.model, dynamic=True)
+        # with torch.no_grad():
+        #     dummy_input = torch.randn(1, 3, 32, 32).to(self.device)
+        #     self.model(dummy_input)
 
     def train(self, global_model):
         # Update compiled model with the global weights

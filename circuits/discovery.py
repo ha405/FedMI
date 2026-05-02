@@ -163,8 +163,7 @@ def discover_all_classes_cached(model, class_samples_dict: Dict[int, Tuple[torch
 
         optimizer.zero_grad()
         
-        unique_labels = labels.unique()
-        l0_loss = sum(torch.sigmoid(p[unique_labels]).sum() for p in gate_params.values())
+        l0_loss = sum(torch.sigmoid(p[labels]).sum(dim=1).mean() for p in gate_params.values())
         
         logits = model(inputs)
         cls_loss = criterion(logits, labels)

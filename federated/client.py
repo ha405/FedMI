@@ -25,7 +25,6 @@ class FederatedClient:
             labels = labels.to(self.device, non_blocking=True)
             self.dataloader.append((inputs, labels))
 
-        # Persistent model to avoid repeated torch.compile overhead
         from core.models import get_model
         self.model = get_model(self.config).to(self.device)
         # self.model = torch.compile(self.model, dynamic=True)

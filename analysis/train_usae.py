@@ -373,7 +373,7 @@ def main():
         'top_k': args.top_k
     }, model_output)
     print(f"USAE model saved to: {model_output}")
-    print(f"\n✓ All results saved to: {output_dir}")
+    print(f"\n[OK] All results saved to: {output_dir}")
 
 if __name__ == "__main__":
     main()

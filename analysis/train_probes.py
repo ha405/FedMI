@@ -110,7 +110,7 @@ def find_latest_checkpoint(checkpoints_dir):
     return max(files, key=lambda f: int(os.path.basename(f).split("_")[-1].split(".")[0]))
 
 
-def run_one(results_dir, device, epochs=50, batch_size=128, lr=1e-4):
+def run_one(results_dir, device, epochs=50, batch_size=128, lr=1e-4, final_only=True):
     results_dir = os.path.abspath(results_dir)
     if not os.path.isdir(results_dir):
         print(f"  WARNING: directory not found, skipping: {results_dir}")
@@ -145,12 +145,13 @@ def run_one(results_dir, device, epochs=50, batch_size=128, lr=1e-4):
 
     stages, _ = _get_stages(model)
     num_blocks = len(stages)
+    blocks_to_probe = [num_blocks] if final_only else list(range(1, num_blocks + 1))
 
     out_dir = os.path.join(results_dir, "probes")
     os.makedirs(out_dir, exist_ok=True)
 
     summary = {}
-    for block_idx in range(1, num_blocks + 1):
+    for block_idx in blocks_to_probe:
         print(f"\n  [Block {block_idx}/{num_blocks}] Extracting features...")
         feat_train = extract_features(model, train_loader, device, block_idx)
         feat_test = extract_features(model, test_loader, device, block_idx)
@@ -208,10 +209,14 @@ def main():
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--all-blocks", action="store_true",
+                        help="Probe all blocks (default: final block only)")
     args = parser.parse_args()
 
     device = args.device
     print(f"Device: {device}\n")
+
+    final_only = not args.all_blocks
 
     if args.all:
         for display, dirnames in MODEL_FAMILIES:
@@ -219,12 +224,14 @@ def main():
             for dirname in dirnames:
                 print(f"\n  -- {dirname}")
                 run_one(os.path.join(args.results_base, dirname), device,
-                        epochs=args.epochs, batch_size=args.batch_size, lr=args.lr)
+                        epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
+                        final_only=final_only)
         return
 
     if args.results_dir:
         run_one(args.results_dir, device,
-                epochs=args.epochs, batch_size=args.batch_size, lr=args.lr)
+                epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
+                final_only=final_only)
         return
 
     # Legacy single-checkpoint mode

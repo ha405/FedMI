@@ -2,6 +2,16 @@
 
 Mechanistic analysis of circuit preservation across federated learning clients under IID and non-IID data distributions.
 
+ArXiv: https://arxiv.org/abs/2512.23043
+
+---
+
+## Experiment Files
+
+Pre-trained checkpoints, circuits, and all experiment outputs are available on OneDrive (not tracked in git):
+
+**[Download experiment files](https://pern-my.sharepoint.com/:f:/g/personal/26100253_lums_edu_pk/IgC8KBo7z1X9QKnM1oTQARibAeUqTDbCjzAXfyenF7igKsM?e=fy6jhz)**
+
 ---
 
 ## Setup
@@ -73,6 +83,9 @@ python analysis/circuit_consistency.py --intra-client results/
 
 ## Post-hoc Analysis (manual)
 
+Linear probes, FC finetuning, and USAE are run per-experiment after training.
+By default probes target the final convolutional block only (`--all-blocks` to probe all).
+
 ### Linear probes on a single experiment
 
 ```bash
@@ -98,11 +111,16 @@ python run_suite.py --usae-dirs results/CIFAR_CNN results/CIFAR_CNN_005
 ```
 results/<experiment>/
   config.json
-  checkpoints/         # round-by-round global model checkpoints
+  checkpoints/         # round-by-round global model checkpoints (.pt, gitignored)
   circuits/            # per-round circuit JSON + all_circuits.json
   figures/             # IoU plots (inter, intra, local-global)
   logs/                # training log
   partitions/          # client data partition indices
-  probes/              # linear probe results (if run)
+  probes/              # linear probe accuracy per block (if run)
   finetuning_results/  # FC finetune results (if run)
+
+results/usae_<A>_vs_<B>_block<N>/
+  usae_model.pt        # trained USAE weights
+  results.json         # stitching accuracy table
+  evaluation_results.png
 ```

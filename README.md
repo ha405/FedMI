@@ -2,8 +2,6 @@
 
 Mechanistic analysis of circuit preservation across federated learning clients under IID and non-IID data distributions.
 
-ArXiv: https://arxiv.org/abs/2512.23043
-
 ---
 
 ## Experiment Files

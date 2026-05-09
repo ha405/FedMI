@@ -110,7 +110,8 @@ def find_latest_checkpoint(checkpoints_dir):
     return max(files, key=lambda f: int(os.path.basename(f).split("_")[-1].split(".")[0]))
 
 
-def run_one(results_dir, device, epochs=50, batch_size=128, lr=1e-4, final_only=True):
+def run_one(results_dir, device, epochs=50, batch_size=128, lr=1e-4,
+            final_only=True, include_middle=False):
     results_dir = os.path.abspath(results_dir)
     if not os.path.isdir(results_dir):
         print(f"  WARNING: directory not found, skipping: {results_dir}")
@@ -145,7 +146,16 @@ def run_one(results_dir, device, epochs=50, batch_size=128, lr=1e-4, final_only=
 
     stages, _ = _get_stages(model)
     num_blocks = len(stages)
-    blocks_to_probe = [num_blocks] if final_only else list(range(1, num_blocks + 1))
+    # middle = penultimate block (conv2 for CNN, block3 output for ResNet)
+    middle_idx = num_blocks - 1
+    if final_only and not include_middle:
+        blocks_to_probe = [num_blocks]
+    elif include_middle and not final_only:
+        blocks_to_probe = [middle_idx]
+    elif include_middle:
+        blocks_to_probe = [middle_idx, num_blocks]
+    else:
+        blocks_to_probe = list(range(1, num_blocks + 1))
 
     out_dir = os.path.join(results_dir, "probes")
     os.makedirs(out_dir, exist_ok=True)
@@ -211,6 +221,8 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--all-blocks", action="store_true",
                         help="Probe all blocks (default: final block only)")
+    parser.add_argument("--middle", action="store_true",
+                        help="Also probe the middle block (conv2 for CNN, block3 for ResNet)")
     args = parser.parse_args()
 
     device = args.device
@@ -225,13 +237,13 @@ def main():
                 print(f"\n  -- {dirname}")
                 run_one(os.path.join(args.results_base, dirname), device,
                         epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
-                        final_only=final_only)
+                        final_only=final_only, include_middle=args.middle)
         return
 
     if args.results_dir:
         run_one(args.results_dir, device,
                 epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
-                final_only=final_only)
+                final_only=final_only, include_middle=args.middle)
         return
 
     # Legacy single-checkpoint mode

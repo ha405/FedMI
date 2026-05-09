@@ -239,15 +239,12 @@ class ExperimentRunner:
 
     def _run_analysis(self):
         try:
-            from analysis.visualizer.consistency import ConsistencyVisualizer
-            from analysis.plot_results import plot_convergence
-
-            ConsistencyVisualizer(self.config.output_dir).run()
-            plot_convergence(self.config.output_dir)
-
-            viz_src = os.path.join("analysis", "visualizer", "fl_visualizer.html")
-            if os.path.exists(viz_src):
-                shutil.copy(viz_src, os.path.join(self.config.output_dir, "visualizer.html"))
+            from analysis.circuit_consistency import run_single_experiment_analysis
+            print("\n[Analysis] Generating IoU figures...")
+            run_single_experiment_analysis(
+                self.config.output_dir,
+                figures_dir=os.path.join(self.config.output_dir, "figures"),
+            )
         except Exception as e:
             import traceback
             print(f"Analysis error: {e}")

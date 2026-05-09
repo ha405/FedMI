@@ -1,46 +1,108 @@
-# FedMI
-Advanced ML Research Project - Mechanistic Analysis of Circuit Preservation in Federated Learning
+# FedMI — Mechanistic Interpretability in Federated Learning
 
-ArXiv link: https://arxiv.org/abs/2512.23043
-
-## Quick Start
-
-### 1. Run Experiments
-Choose a configuration based on your scenario:
-
-- **IID Baseline**:
-  ```bash
-  python main.py --config_file configs/iid.json
-  ```
-- **Non-IID (Label Skew)**:
-  ```bash
-  python main.py --config_file configs/non_iid_pathological.json
-  ```
-- **Full Reproducibility Suite (IID + Non-IID)**:
-  ```bash
-  bash experiments/run_all.sh
-  ```
-
-### 2. View Results
-Outputs are saved in `checkpoints/<experiment_name>/`.
-
-#### Automatic Visualizations (in `figures/`)
-| Plot Name | What it Shows |
-| :--- | :--- |
-| `class_distribution_individual_*.png` | **Per-Client Class Distribution** - Histograms showing sample count per class for each client (Non-IID partitions only). |
-| `class_distribution_stacked_*.png` | **Stacked Bar Chart** - All clients' class composition side-by-side for easy comparison. |
-| `class_distribution_heatmap_*.png` | **Class Proportion Heatmap** - Color intensity shows what fraction of each client's data is from each class. |
-| `heatmap_overlap_round_X.png` | **Red**=Local-only, **Blue**=Global-only, **Green**=Preserved/Shared neurons. |
-| `cross_accuracy_drift_gap.png` | Performance gap between Client Model and Global Model on local data. |
-| `Specialist_Distinctness.png` | Low IoU = Clients are specializing in disjoint tasks. |
-| `sensitivity_shared_neuron_impact.png` | Validation accuracy after injecting shared neurons. |
-
-**Note:** Class distribution visualizations are automatically generated for non-IID partitioning methods (Dirichlet, systematic skew, manual). See [Class Distribution README](analysis/visualizer/CLASS_DISTRIBUTION_README.md) for details.
-
-#### Interactive Viewer
-1. Open `checkpoints/<experiment_name>/visualizer.html` in your browser.
-2. Load the `circuits/all_circuits.json` file from the same directory to explore network graphs.
+Mechanistic analysis of circuit preservation across federated learning clients under IID and non-IID data distributions.
 
 ---
 
-Detailed CKA Similarity results and progression analysis are now available in **[RESULTS_CKA.md](RESULTS_CKA.md)**.
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Running Experiments
+
+### Single config
+
+```bash
+python main.py --config_file configs/cifar_cnn/iid.json
+```
+
+### Full suite (all 4 families × 4 conditions)
+
+```bash
+python run_suite.py
+```
+
+### One family only
+
+```bash
+python run_suite.py --families cifar_cnn
+```
+
+### Skip phases
+
+```bash
+python run_suite.py --skip probes finetune usae
+```
+
+### Smoke test (1 round, _test-suffixed dirs)
+
+```bash
+python run_suite.py --test --families cifar_cnn
+```
+
+---
+
+## Config Layout
+
+```
+configs/
+  cifar_cnn/      iid.json  alpha_05.json  alpha_02.json  alpha_005.json
+  cifar_resnet/   iid.json  alpha_05.json  alpha_02.json  alpha_005.json
+  fmnist_cnn/     iid.json  alpha_05.json  alpha_02.json  alpha_005.json
+  fmnist_resnet/  iid.json  alpha_05.json  alpha_02.json  alpha_005.json
+config.json       # root template
+```
+
+---
+
+## Analysis
+
+Circuit consistency figures (inter-client IoU, local-vs-global IoU, intra-client IoU):
+
+```bash
+python analysis/circuit_consistency.py --compare      results/
+python analysis/circuit_consistency.py --local-global results/
+python analysis/circuit_consistency.py --intra-client results/
+```
+
+---
+
+## Post-hoc Analysis (manual)
+
+### Linear probes on a single experiment
+
+```bash
+python run_suite.py --probe-dir results/CIFAR_CNN
+```
+
+### FC finetuning on a single experiment
+
+```bash
+python run_suite.py --finetune-dir results/CIFAR_CNN
+```
+
+### Universal SAE on two experiments
+
+```bash
+python run_suite.py --usae-dirs results/CIFAR_CNN results/CIFAR_CNN_005
+```
+
+---
+
+## Output Structure
+
+```
+results/<experiment>/
+  config.json
+  checkpoints/         # round-by-round global model checkpoints
+  circuits/            # per-round circuit JSON + all_circuits.json
+  figures/             # IoU plots (inter, intra, local-global)
+  logs/                # training log
+  partitions/          # client data partition indices
+  probes/              # linear probe results (if run)
+  finetuning_results/  # FC finetune results (if run)
+```

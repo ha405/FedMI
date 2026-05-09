@@ -26,8 +26,8 @@ def get_dataset(config):
     transform = get_transforms(config.dataset_name)
 
     if config.dataset_name == "MNIST":
-        trainset = torchvision.datasets.MNIST(root=config.data_root, train=True,  download=True, transform=transform)
-        testset  = torchvision.datasets.MNIST(root=config.data_root, train=False, download=True, transform=transform)
+        trainset = torchvision.datasets.FashionMNIST(root=config.data_root, train=True,  download=True, transform=transform)
+        testset  = torchvision.datasets.FashionMNIST(root=config.data_root, train=False, download=True, transform=transform)
     elif config.dataset_name == "CIFAR10":
         trainset = torchvision.datasets.CIFAR10(root=config.data_root, train=True,  download=True, transform=transform)
         testset  = torchvision.datasets.CIFAR10(root=config.data_root, train=False, download=True, transform=transform)

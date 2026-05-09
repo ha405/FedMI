@@ -1,0 +1,36 @@
+{
+    "_comment": "Default config. Override any field via CLI: python main.py --dataset CIFAR10 --model ResNet --partition dirichlet --alpha 0.3",
+    "device": "cuda",
+    "seed": 42,
+    "output_dir": "./results/CIFAR_ResNet_02",
+    "dataset_name": "CIFAR10",
+    "data_root": "./data",
+    "batch_size": 256,
+    "num_workers": 0,
+    "model_name": "ResNet",
+    "conv_channels": [
+        64,
+        128,
+        256
+    ],
+    "num_classes": 10,
+
+    "num_clients": 10,
+    "num_rounds": 100,
+    "local_epochs": 5,
+
+    "partition_method": "dirichlet",
+    "dirichlet_alpha": 0.2,
+    "train_mode": "sparse",
+    "learning_rate": 0.001,
+    "target_sparsity": 0.999,
+    "gate_lr": 0.1,
+    "l0_lambda": 0.01,
+    "discovery_steps": 300,
+    "_comment_classes": "null = auto-derived from partition at runtime (recommended).",
+
+
+    "use_fedrs": false,
+    "fedrs_alpha": 0.4,
+    "resume": true
+}

@@ -1,0 +1,23 @@
+{
+    "device": "cuda",
+    "seed": 42,
+    "output_dir": "./results/CIFAR_CNN",
+    "dataset_name": "CIFAR10",
+    "data_root": "./data",
+    "batch_size": 256,
+    "num_workers": 0,
+    "model_name": "SimpleCNN",
+    "conv_channels": [64, 128, 256],
+    "num_classes": 10,
+    "num_clients": 10,
+    "num_rounds": 100,
+    "local_epochs": 5,
+    "partition_method": "iid",
+    "dirichlet_alpha": 0.5,
+    "train_mode": "sparse",
+    "learning_rate": 0.001,
+    "target_sparsity": 0.999,
+    "discovery_steps": 300,
+    "use_fedrs": false,
+    "resume": false
+}
